@@ -1094,7 +1094,8 @@ unsafe fn spipe(pipedes: *mut ::core::ffi::c_int) {
         err(libc::EXIT_FAILURE, c"pipe(pipe_in)".as_ptr());
     }
 }
-unsafe fn exec_shell(command: &std::ffi::CStr) {
+unsafe fn exec_shell(command: &[u8]) {
+    let command = std::ffi::CString::new(first_nul(command)).expect("command byte prefix");
     execl(
         c"/bin/sh".as_ptr(),
         c"/bin/sh".as_ptr(),
@@ -1172,7 +1173,7 @@ unsafe fn setup_child_cb(child: *mut i3bar_child) {
     };
 }
 
-pub unsafe fn start_child(command: Option<std::ffi::CString>) {
+pub unsafe fn start_child(command: Option<Vec<u8>>) {
     let Some(command) = command else {
         return;
     };
@@ -1201,7 +1202,7 @@ pub unsafe fn start_child(command: Option<std::ffi::CString>) {
     setup_child_cb(&raw mut status_child);
 }
 
-pub unsafe fn start_ws_child(command: Option<std::ffi::CString>) {
+pub unsafe fn start_ws_child(command: Option<Vec<u8>>) {
     let Some(command) = command else {
         return;
     };

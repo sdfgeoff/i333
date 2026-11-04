@@ -964,7 +964,7 @@ unsafe fn execute_custom_command(input_code: u8, event_is_release: bool) -> bool
         } else {
             i3_send_msg(
                 I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32,
-                (*binding_0).command_ptr(),
+                (*binding_0).command.clone().as_deref(),
             );
             return true;
         }
@@ -1082,7 +1082,10 @@ unsafe extern "C" fn focus_workspace(ws: *mut i3_ws) {
         };
         quote_workspace(name)
     };
-    i3_send_msg(I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32, command.as_ptr());
+    i3_send_msg(
+        I3_IPC_MESSAGE_TYPE_RUN_COMMAND as u32,
+        Some(command.to_bytes()),
+    );
 }
 
 unsafe fn handle_button(event: &ButtonInput) {
@@ -1370,15 +1373,9 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
     if event.r#type().resource_id() == atoms[AtomIndex::I3Sync as ::core::ffi::c_int as usize] {
         let window: u32 = words[0_usize];
         let rnd: u32 = words[1_usize];
-        let mut payload: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-        sasprintf(
-            &raw mut payload,
-            c"{\"rnd\":%d, \"window\":%d}".as_ptr(),
-            rnd,
-            window,
-        );
-        i3_send_msg(I3_IPC_MESSAGE_TYPE_SYNC as u32, payload);
-        free(payload as *mut ::core::ffi::c_void);
+        let payload =
+            format!("{{\"rnd\":{}, \"window\":{}}}", rnd as i32, window as i32).into_bytes();
+        i3_send_msg(I3_IPC_MESSAGE_TYPE_SYNC as u32, Some(&payload));
     } else if event.r#type().resource_id()
         == atoms[AtomIndex::NetSystemTrayOpcode as ::core::ffi::c_int as usize]
         && event.format() as ::core::ffi::c_int == 32 as ::core::ffi::c_int
@@ -2112,17 +2109,17 @@ unsafe fn deregister_xkb_keyevents() {
     send_unchecked(&xkb_event_selection(false));
 }
 
-pub unsafe fn init_xcb_late(fontname: Option<std::ffi::CString>) {
+pub unsafe fn init_xcb_late(fontname: Option<Vec<u8>>) {
     let fontname = fontname
         .as_deref()
-        .unwrap_or(c"-misc-fixed-medium-r-normal--13-120-75-75-C-70-iso10646-1");
+        .unwrap_or(b"-misc-fixed-medium-r-normal--13-120-75-75-C-70-iso10646-1");
     i3_common::font::replace_font(
         &mut font,
         &DISPLAY_STATE
             .as_ref()
             .expect("bar display initialized")
             .font_context,
-        fontname.to_bytes().to_vec(),
+        fontname.to_vec(),
         true,
     );
 
@@ -2501,7 +2498,9 @@ unsafe fn get_tray_output() -> *mut i3_output {
         }
         return ::core::ptr::null_mut::<i3_output>();
     } else if strcasecmp(
-        (*config.tray_outputs.tqh_first).output_ptr(),
+        std::ffi::CString::new(first_nul(&(*config.tray_outputs.tqh_first).output))
+            .unwrap()
+            .as_ptr(),
         c"none".as_ptr(),
     ) == 0 as ::core::ffi::c_int
     {
@@ -2513,10 +2512,18 @@ unsafe fn get_tray_output() -> *mut i3_output {
         output = (*outputs).slh_first;
         while !output.is_null() {
             if (*output).active
-                && (strcasecmp((*output).name_ptr(), (*tray_output).output_ptr())
-                    == 0 as ::core::ffi::c_int
-                    || strcasecmp((*tray_output).output_ptr(), c"primary".as_ptr())
-                        == 0 as ::core::ffi::c_int
+                && (strcasecmp(
+                    (*output).name_ptr(),
+                    std::ffi::CString::new(first_nul(&(*tray_output).output))
+                        .unwrap()
+                        .as_ptr(),
+                ) == 0 as ::core::ffi::c_int
+                    || strcasecmp(
+                        std::ffi::CString::new(first_nul(&(*tray_output).output))
+                            .unwrap()
+                            .as_ptr(),
+                        c"primary".as_ptr(),
+                    ) == 0 as ::core::ffi::c_int
                         && (*output).primary)
             {
                 return output;
@@ -2613,27 +2620,15 @@ pub unsafe fn reconfig_windows(redraw_bars_0: bool) {
                 width: (*walk).rect.w as u16,
                 height: bar_height as u16,
             });
-            let mut class: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            let len: ::core::ffi::c_int = sasprintf(
-                &raw mut class,
-                c"%s%ci3bar%c".as_ptr(),
-                config
-                    .bar_id
-                    .clone()
-                    .as_ref()
-                    .map_or(std::ptr::null(), |id| id.as_ptr()),
-                0 as ::core::ffi::c_int,
-                0 as ::core::ffi::c_int,
-            );
+            let mut class = config.bar_id.clone().unwrap_or_else(|| b"(null)".to_vec());
+            class.extend_from_slice(b"\0i3bar\0");
             let class_cookie = connection.send_request(&x::ChangeProperty {
                 mode: x::PropMode::Replace,
                 window: x::Window::new(bar_id),
                 property: x::Atom::new(x::ATOM_WM_CLASS.resource_id() as ::core::ffi::c_int as u32),
                 r#type: x::ATOM_STRING,
-                data: std::slice::from_raw_parts(class.cast::<u8>(), len as usize),
+                data: &class,
             });
-            free(class as *mut ::core::ffi::c_void);
             let mut name: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
             sasprintf(
                 &raw mut name,

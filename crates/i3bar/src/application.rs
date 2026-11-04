@@ -103,14 +103,14 @@ pub struct config_t {
     pub ws_min_width: ::core::ffi::c_int,
     pub strip_ws_numbers: bool,
     pub strip_ws_name: bool,
-    pub bar_id: Option<std::ffi::CString>,
-    pub command: Option<std::ffi::CString>,
-    pub workspace_command: Option<std::ffi::CString>,
-    pub fontname: Option<std::ffi::CString>,
+    pub bar_id: Option<Vec<u8>>,
+    pub command: Option<Vec<u8>>,
+    pub workspace_command: Option<Vec<u8>>,
+    pub fontname: Option<Vec<u8>>,
     pub separator_symbol: Option<I3String>,
     pub tray_outputs: tray_outputs_head,
     pub tray_padding: ::core::ffi::c_int,
-    pub outputs: Vec<std::ffi::CString>,
+    pub outputs: Vec<Vec<u8>>,
     pub hide_on_modifier: crate::application::BarDisplayMode,
     pub hidden_state: crate::application::HiddenState,
 }
@@ -299,7 +299,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
                         // socket path. Never give libc a Rust allocation.
                         socket_path = Some(expand_path(&value));
                     } else {
-                        config.bar_id = Some(value);
+                        config.bar_id = Some(value.into_bytes());
                     }
                 }
                 _ => unreachable!(),
@@ -334,11 +334,7 @@ unsafe fn run(arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     init_connection(socket_path.as_ref().unwrap().as_ptr());
     i3_send_msg(
         I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG as u32,
-        config
-            .bar_id
-            .clone()
-            .as_ref()
-            .map_or(std::ptr::null(), |id| id.as_ptr()),
+        config.bar_id.clone().as_deref(),
     );
     drop(socket_path);
     let mut signals = SignalWatchers {

@@ -220,6 +220,7 @@ unsafe fn apply_outputs(records: Vec<OutputRecord>) {
         let name = record.name.take().expect("reader checked name");
         if !config.outputs.is_empty() {
             let accepted = config.outputs.iter().any(|requested| {
+                let requested = CString::new(prefix(requested)).expect("output byte prefix");
                 let requested = requested.as_ptr();
                 libc::strcasecmp(name.as_ptr(), requested) == 0
                     || libc::strcasecmp(requested, c"primary".as_ptr()) == 0 && record.primary

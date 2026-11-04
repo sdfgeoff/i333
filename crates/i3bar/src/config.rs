@@ -10,7 +10,6 @@ use crate::application::{BarDisplayMode, BarPosition, HiddenState, Rect};
 use i3_common::json_stream::{Event, EventHandler, ParseError, ParseErrorKind, Parser};
 use i3_common::string::I3String;
 use std::cell::RefCell;
-use std::ffi::CString;
 use std::ptr;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -19,7 +18,7 @@ use std::sync::Mutex;
 /// explicit event-thread append/clear functions transfer or recover Boxes.
 pub struct Binding {
     pub input_code: i32,
-    pub command: Option<CString>,
+    pub command: Option<Vec<u8>>,
     pub release: bool,
     pub bindings: BarBindingLinks,
 }
@@ -35,18 +34,13 @@ impl Binding {
             },
         }
     }
-    pub fn command_ptr(&self) -> *const libc::c_char {
-        self.command
-            .as_deref()
-            .map_or(ptr::null(), std::ffi::CStr::as_ptr)
-    }
 }
 pub struct TrayOutput {
-    pub output: CString,
+    pub output: Vec<u8>,
     pub tray_outputs: TrayOutputLinks,
 }
 impl TrayOutput {
-    fn new(output: CString) -> Self {
+    fn new(output: Vec<u8>) -> Self {
         Self {
             output,
             tray_outputs: TrayOutputLinks {
@@ -54,9 +48,6 @@ impl TrayOutput {
                 tqe_prev: ptr::null_mut(),
             },
         }
-    }
-    pub fn output_ptr(&self) -> *const libc::c_char {
-        self.output.as_ptr()
     }
 }
 
@@ -147,14 +138,14 @@ enum IntegerField {
     WorkspaceMinWidth,
 }
 enum Update {
-    String(StringField, CString),
+    String(StringField, Vec<u8>),
     Boolean(BooleanField, bool),
     Integer(IntegerField, i64),
     Mode(BarDisplayMode),
     HiddenState(HiddenState),
     Position(BarPosition),
     Separator(I3String),
-    Output(CString),
+    Output(Vec<u8>),
     Binding(Box<Binding>),
     Tray(Box<TrayOutput>),
     Log {
@@ -191,8 +182,8 @@ struct SharedReader(Rc<RefCell<ConfigReader>>);
 fn prefix(bytes: &[u8]) -> &[u8] {
     bytes.split(|byte| *byte == 0).next().unwrap()
 }
-fn owned_string(bytes: &[u8]) -> CString {
-    CString::new(prefix(bytes)).expect("NUL-free prefix")
+fn owned_string(bytes: &[u8]) -> Vec<u8> {
+    prefix(bytes).to_vec()
 }
 fn modifier(value: &[u8]) -> u32 {
     match value {
@@ -650,45 +641,29 @@ unsafe fn apply_config(target: *mut config_t, updates: Vec<Update>) {
                 StringField::Command => (*target).command = Some(value),
                 StringField::WorkspaceCommand => (*target).workspace_command = Some(value),
                 StringField::Font => (*target).fontname = Some(value),
-                StringField::BarFg => (*target).colors.bar_fg = Some(value.into_bytes()),
-                StringField::BarBg => (*target).colors.bar_bg = Some(value.into_bytes()),
-                StringField::SepFg => (*target).colors.sep_fg = Some(value.into_bytes()),
-                StringField::FocusBarFg => (*target).colors.focus_bar_fg = Some(value.into_bytes()),
-                StringField::FocusBarBg => (*target).colors.focus_bar_bg = Some(value.into_bytes()),
-                StringField::FocusSepFg => (*target).colors.focus_sep_fg = Some(value.into_bytes()),
-                StringField::FocusWsBorder => {
-                    (*target).colors.focus_ws_border = Some(value.into_bytes())
-                }
-                StringField::FocusWsBg => (*target).colors.focus_ws_bg = Some(value.into_bytes()),
-                StringField::FocusWsFg => (*target).colors.focus_ws_fg = Some(value.into_bytes()),
-                StringField::ActiveWsBorder => {
-                    (*target).colors.active_ws_border = Some(value.into_bytes())
-                }
-                StringField::ActiveWsBg => (*target).colors.active_ws_bg = Some(value.into_bytes()),
-                StringField::ActiveWsFg => (*target).colors.active_ws_fg = Some(value.into_bytes()),
-                StringField::InactiveWsBorder => {
-                    (*target).colors.inactive_ws_border = Some(value.into_bytes())
-                }
-                StringField::InactiveWsBg => {
-                    (*target).colors.inactive_ws_bg = Some(value.into_bytes())
-                }
-                StringField::InactiveWsFg => {
-                    (*target).colors.inactive_ws_fg = Some(value.into_bytes())
-                }
-                StringField::UrgentWsBorder => {
-                    (*target).colors.urgent_ws_border = Some(value.into_bytes())
-                }
-                StringField::UrgentWsBg => (*target).colors.urgent_ws_bg = Some(value.into_bytes()),
-                StringField::UrgentWsFg => (*target).colors.urgent_ws_fg = Some(value.into_bytes()),
+                StringField::BarFg => (*target).colors.bar_fg = Some(value),
+                StringField::BarBg => (*target).colors.bar_bg = Some(value),
+                StringField::SepFg => (*target).colors.sep_fg = Some(value),
+                StringField::FocusBarFg => (*target).colors.focus_bar_fg = Some(value),
+                StringField::FocusBarBg => (*target).colors.focus_bar_bg = Some(value),
+                StringField::FocusSepFg => (*target).colors.focus_sep_fg = Some(value),
+                StringField::FocusWsBorder => (*target).colors.focus_ws_border = Some(value),
+                StringField::FocusWsBg => (*target).colors.focus_ws_bg = Some(value),
+                StringField::FocusWsFg => (*target).colors.focus_ws_fg = Some(value),
+                StringField::ActiveWsBorder => (*target).colors.active_ws_border = Some(value),
+                StringField::ActiveWsBg => (*target).colors.active_ws_bg = Some(value),
+                StringField::ActiveWsFg => (*target).colors.active_ws_fg = Some(value),
+                StringField::InactiveWsBorder => (*target).colors.inactive_ws_border = Some(value),
+                StringField::InactiveWsBg => (*target).colors.inactive_ws_bg = Some(value),
+                StringField::InactiveWsFg => (*target).colors.inactive_ws_fg = Some(value),
+                StringField::UrgentWsBorder => (*target).colors.urgent_ws_border = Some(value),
+                StringField::UrgentWsBg => (*target).colors.urgent_ws_bg = Some(value),
+                StringField::UrgentWsFg => (*target).colors.urgent_ws_fg = Some(value),
                 StringField::BindingModeBorder => {
-                    (*target).colors.binding_mode_border = Some(value.into_bytes())
+                    (*target).colors.binding_mode_border = Some(value)
                 }
-                StringField::BindingModeBg => {
-                    (*target).colors.binding_mode_bg = Some(value.into_bytes())
-                }
-                StringField::BindingModeFg => {
-                    (*target).colors.binding_mode_fg = Some(value.into_bytes())
-                }
+                StringField::BindingModeBg => (*target).colors.binding_mode_bg = Some(value),
+                StringField::BindingModeFg => (*target).colors.binding_mode_fg = Some(value),
             },
 
             Update::Boolean(field, value) => match field {
@@ -727,20 +702,24 @@ unsafe fn apply_config(target: *mut config_t, updates: Vec<Update>) {
             _ => {}
         }
     }
-    if (*target).disable_ws && (*target).workspace_command.is_some() {
-        libc::fprintf(i3_common::native_stdio::stderr,c"[../i3bar/src/config.c:428] ERROR: You have specified 'workspace_buttons no'. Your 'workspace_command %s' will be ignored.\n".as_ptr(),(*target).workspace_command.as_ref().unwrap().as_ptr());
-        (*target).workspace_command = None;
+    if (*target).disable_ws {
+        if let Some(command) = (*target).workspace_command.take() {
+            let mut message = b"[../i3bar/src/config.c:428] ERROR: You have specified 'workspace_buttons no'. Your 'workspace_command ".to_vec();
+            message.extend_from_slice(&command);
+            message.extend_from_slice(b"' will be ignored.\n");
+            libc::fwrite(
+                message.as_ptr().cast(),
+                1,
+                message.len(),
+                i3_common::native_stdio::stderr,
+            );
+        }
     }
 }
 /// # Safety
-/// json points to size readable bytes. The caller owns the native event-thread
+/// The caller owns the native event-thread
 /// configuration and no reentrant callback may modify it while applying updates.
-pub unsafe fn parse_config_json(json: *const u8, size: usize) {
-    let json = if size == 0 {
-        &[]
-    } else {
-        std::slice::from_raw_parts(json, size)
-    };
+pub unsafe fn parse_config_json(json: &[u8]) {
     let state = READER_STATE
         .lock()
         .expect("config reader state poisoned")
@@ -756,7 +735,7 @@ pub unsafe fn parse_config_json(json: *const u8, size: usize) {
         }
     }
 }
-struct FirstConfig(Rc<RefCell<Option<CString>>>);
+struct FirstConfig(Rc<RefCell<Option<Vec<u8>>>>);
 impl EventHandler for FirstConfig {
     fn on_event(&mut self, event: Event<'_>) -> bool {
         if let Event::String(value) = event {
@@ -766,7 +745,7 @@ impl EventHandler for FirstConfig {
         true
     }
 }
-fn read_first_config(json: &[u8]) -> Option<CString> {
+fn read_first_config(json: &[u8]) -> Option<Vec<u8>> {
     let first = Rc::new(RefCell::new(None));
     let mut parser = Parser::new(FirstConfig(Rc::clone(&first)));
     parser.options_mut().allow_legacy_whitespace = true;
@@ -779,13 +758,8 @@ fn read_first_config(json: &[u8]) -> Option<CString> {
         .into_inner()
 }
 /// # Safety
-/// json points to size readable bytes; the event thread owns config.bar_id.
-pub unsafe fn parse_get_first_i3bar_config(json: *const u8, size: usize) {
-    let json = if size == 0 {
-        &[]
-    } else {
-        std::slice::from_raw_parts(json, size)
-    };
+/// The event thread exclusively owns config.bar_id.
+pub unsafe fn parse_get_first_i3bar_config(json: &[u8]) {
     if let Some(first) = read_first_config(json) {
         config.bar_id = Some(first);
     }
@@ -808,10 +782,9 @@ mod tests {
     fn color_reload_keeps_empty_binary_and_first_nul_values_in_independent_snapshots() {
         let mut target = empty_config();
         let mut patch = parse(br##"{"statusline":"","background":"#112233\u0000ignored"}"##);
-        patch.updates.push(Update::String(
-            StringField::SepFg,
-            CString::new(vec![b'#', 0xff]).unwrap(),
-        ));
+        patch
+            .updates
+            .push(Update::String(StringField::SepFg, vec![b'#', 0xff]));
         unsafe {
             apply_config(&raw mut target, patch.updates);
         }
@@ -846,10 +819,10 @@ mod tests {
             assert_eq!(target.bar_height, 23);
             assert_eq!(target.padding.x, 6);
             assert!(target.strip_ws_name);
-            assert_eq!(target.fontname.as_deref().unwrap(), c"old-font");
+            assert_eq!(target.fontname.as_deref().unwrap(), b"old-font".as_slice());
             assert_eq!(target.outputs.len(), 2);
-            assert_eq!(target.outputs[0].as_c_str(), c"one");
-            assert_eq!(target.outputs[1].as_c_str(), c"two");
+            assert_eq!(target.outputs[0].as_slice(), b"one".as_slice());
+            assert_eq!(target.outputs[1].as_slice(), b"two".as_slice());
             assert!(target.bindings.tqh_first.is_null());
             assert!(target.tray_outputs.tqh_first.is_null());
             clear_config_lists(&raw mut target);
@@ -870,9 +843,9 @@ mod tests {
             let next = (*wheel).bindings.tqe_next;
             let last = (*next).bindings.tqe_next;
             assert_eq!((*wheel).input_code, 4);
-            assert_eq!((*wheel).command.as_deref(), Some(c"wheel"));
+            assert_eq!((*wheel).command.as_deref(), Some(b"wheel".as_slice()));
             assert_eq!((*next).input_code, 8);
-            assert_eq!((*next).command.as_deref(), Some(c"next"));
+            assert_eq!((*next).command.as_deref(), Some(b"next".as_slice()));
             assert!((*next).release);
             assert_eq!((*last).input_code, 9);
             assert_eq!(
@@ -881,10 +854,10 @@ mod tests {
             );
             assert_eq!(target.bindings.tqh_last, &raw mut (*last).bindings.tqe_next);
             let tray = target.tray_outputs.tqh_first;
-            assert_eq!((*tray).output.as_c_str(), c"DP-1");
+            assert_eq!((*tray).output.as_slice(), b"DP-1".as_slice());
             assert_eq!(
-                (*(*tray).tray_outputs.tqe_next).output.as_c_str(),
-                c"primary"
+                (*(*tray).tray_outputs.tqe_next).output.as_slice(),
+                b"primary".as_slice()
             );
             release(&raw mut target);
         }
@@ -920,7 +893,7 @@ mod tests {
             assert_eq!(target.hide_on_modifier, BarDisplayMode::Invisible);
             assert_eq!(target.position, BarPosition::Bottom);
             assert_eq!(target.modifier, 64);
-            assert_eq!(target.command.as_deref().unwrap(), c"run");
+            assert_eq!(target.command.as_deref().unwrap(), b"run".as_slice());
             assert_eq!(
                 target.separator_symbol.as_ref().unwrap().as_str().unwrap(),
                 "a�b"
@@ -989,11 +962,11 @@ mod tests {
     fn first_config_stops_on_first_string_even_before_invalid_trailing_bytes() {
         assert_eq!(
             read_first_config(br#"[null,3,"bar\u0000ignored",garbage"#).as_deref(),
-            Some(c"bar")
+            Some(b"bar".as_slice())
         );
         assert_eq!(
             read_first_config(br#"{"ignored":"first","second":"later"}"#).as_deref(),
-            Some(c"first")
+            Some(b"first".as_slice())
         );
         assert!(read_first_config(br#"[null,3]"#).is_none());
         assert!(read_first_config(br#"["unfinished"#).is_none());

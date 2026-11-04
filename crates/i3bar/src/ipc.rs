@@ -30,7 +30,7 @@ unsafe fn optional_c_str<'a>(value: *const libc::c_char) -> Option<&'a CStr> {
         Some(CStr::from_ptr(value))
     }
 }
-fn child_needs_restart(alive: bool, previous: Option<&CStr>, current: Option<&CStr>) -> bool {
+fn child_needs_restart(alive: bool, previous: Option<&[u8]>, current: Option<&[u8]>) -> bool {
     !alive || previous != current
 }
 fn prefix(bytes: &[u8]) -> &[u8] {
@@ -108,7 +108,7 @@ unsafe fn got_output_reply(reply: &[u8]) {
         o_walk = (*o_walk).slist.sle_next;
     }
     if i3_provides_workspaces() {
-        i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_WORKSPACES, ptr::null());
+        i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_WORKSPACES, None);
     } else if config.workspace_command.is_some() {
         repeat_last_ws_json();
     }
@@ -119,7 +119,7 @@ unsafe fn got_bar_config(reply: &[u8]) {
         if config.verbose {
             log_payload(110, b"Received bar list \"", reply, b"\"\n");
         }
-        parse_get_first_i3bar_config(reply.as_ptr(), reply.len());
+        parse_get_first_i3bar_config(reply);
         if config.bar_id.is_none() {
             fprintf(
                 stderr,
@@ -130,7 +130,7 @@ unsafe fn got_bar_config(reply: &[u8]) {
             exit(libc::EXIT_FAILURE);
         }
         {
-            let log_text_bytes = (config.bar_id.as_ref().unwrap().to_bytes()).to_vec();
+            let log_text_bytes = (config.bar_id.as_ref().unwrap().as_slice()).to_vec();
             match std::str::from_utf8(&log_text_bytes) {
                 Ok(log_text) => ::log::info!(
                     concat!(
@@ -152,23 +152,19 @@ unsafe fn got_bar_config(reply: &[u8]) {
         };
         i3_send_msg(
             I3_IPC_MESSAGE_TYPE_GET_BAR_CONFIG,
-            config
-                .bar_id
-                .clone()
-                .as_ref()
-                .map_or(ptr::null(), |id| id.as_ptr()),
+            config.bar_id.clone().as_deref(),
         );
         return;
     }
     if config.verbose {
         log_payload(123, b"Received bar config \"", reply, b"\"\n");
     }
-    i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_OUTPUTS, ptr::null());
+    i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_OUTPUTS, None);
     config.colors = crate::application::ColorStrings::empty();
-    parse_config_json(reply.as_ptr(), reply.len());
+    parse_config_json(reply);
     subscribe_events();
     if i3_provides_workspaces() {
-        i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_WORKSPACES, ptr::null());
+        i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_WORKSPACES, None);
     }
     init_xcb_late(config.fontname.clone());
     init_colors(&raw mut config.colors);
@@ -184,7 +180,7 @@ unsafe fn got_workspace_event(_event: &[u8]) {
             170i32,
         );
     }
-    i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_WORKSPACES, ptr::null());
+    i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_WORKSPACES, None);
 }
 unsafe fn got_output_event(_event: &[u8]) {
     if config.verbose {
@@ -194,7 +190,7 @@ unsafe fn got_output_event(_event: &[u8]) {
             179i32,
         );
     }
-    i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_OUTPUTS, ptr::null());
+    i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_OUTPUTS, None);
 }
 unsafe fn got_mode_event(event: &[u8]) {
     if config.verbose {
@@ -230,11 +226,11 @@ unsafe fn got_mode_event(event: &[u8]) {
 unsafe fn got_bar_config_update(event: &[u8]) {
     // Keep the original compact substring match and first-NUL boundary; the
     // matching decision owns no global graph references across subsequent calls.
-    if config.bar_id.is_none() || !matches_bar_id(event, config.bar_id.as_ref().unwrap().to_bytes())
+    if config.bar_id.is_none() || !matches_bar_id(event, config.bar_id.as_ref().unwrap().as_slice())
     {
         return;
     }
-    i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_OUTPUTS, ptr::null());
+    i3_send_msg(I3_IPC_MESSAGE_TYPE_GET_OUTPUTS, None);
     config.colors = crate::application::ColorStrings::empty();
     if config.verbose {
         log_payload(225, b"Received bar config update \"", event, b"\"\n");
@@ -242,7 +238,7 @@ unsafe fn got_bar_config_update(event: &[u8]) {
     let old_command = config.command.take();
     let old_workspace_command = config.workspace_command.take();
     let old_mode: crate::application::BarDisplayMode = config.hide_on_modifier;
-    parse_config_json(event.as_ptr(), event.len());
+    parse_config_json(event);
     if old_mode != config.hide_on_modifier {
         reconfig_windows(true);
     }
@@ -308,11 +304,11 @@ fn route(message_type: u32) -> Result<Option<Handler>, u32> {
             .ok_or(message_type)
     }
 }
-fn subscriptions(provides_workspaces: bool) -> &'static CStr {
+fn subscriptions(provides_workspaces: bool) -> &'static [u8] {
     if provides_workspaces {
-        c"[ \"workspace\", \"output\", \"mode\", \"barconfig_update\" ]"
+        b"[ \"workspace\", \"output\", \"mode\", \"barconfig_update\" ]"
     } else {
-        c"[ \"output\", \"mode\", \"barconfig_update\" ]"
+        b"[ \"output\", \"mode\", \"barconfig_update\" ]"
     }
 }
 
@@ -442,10 +438,10 @@ unsafe extern "C" fn got_data(_loop: *mut ev_loop, watcher: *mut ev_io, _events:
 }
 
 /// # Safety
-/// payload is null or a live terminated string; the initialized connection is
-/// exclusively used by this event thread and cannot close during the write.
-pub unsafe fn i3_send_msg(message_type: u32, payload: *const libc::c_char) -> i32 {
-    let payload = optional_c_str(payload).map_or(&[][..], CStr::to_bytes);
+/// The initialized connection is exclusively used by this event thread and
+/// cannot close during the write. Payload uses the historical first-NUL prefix.
+pub unsafe fn i3_send_msg(message_type: u32, payload: Option<&[u8]>) -> i32 {
+    let payload = payload.map_or(&[][..], prefix);
     let fd = (*CONNECTION).watcher.fd;
     let result = {
         let mut stream = (*CONNECTION)
@@ -494,7 +490,7 @@ pub unsafe fn destroy_connection() {
 pub unsafe fn subscribe_events() {
     i3_send_msg(
         I3_IPC_MESSAGE_TYPE_SUBSCRIBE,
-        subscriptions(i3_provides_workspaces()).as_ptr(),
+        Some(subscriptions(i3_provides_workspaces())),
     );
 }
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
@@ -668,11 +664,11 @@ mod tests {
         assert!(!matches_bar_id(b"ignored\0{\"id\":\"bar-0\"}", b"bar-0"));
         assert_eq!(prefix(b"raw\xff\0trailing"), b"raw\xff");
         assert_eq!(
-            subscriptions(true).to_bytes(),
+            subscriptions(true),
             br#"[ "workspace", "output", "mode", "barconfig_update" ]"#
         );
         assert_eq!(
-            subscriptions(false).to_bytes(),
+            subscriptions(false),
             br#"[ "output", "mode", "barconfig_update" ]"#
         );
     }
@@ -680,19 +676,31 @@ mod tests {
     #[test]
     fn detached_commands_survive_comparison_and_preserve_null_empty_difference() {
         assert!(!child_needs_restart(true, None, None));
-        assert!(child_needs_restart(false, Some(c"same"), Some(c"same")));
-        assert!(!child_needs_restart(true, Some(c"same"), Some(c"same")));
-        assert!(child_needs_restart(true, None, Some(c"")));
-        assert!(child_needs_restart(true, Some(c""), None));
-        assert!(child_needs_restart(true, Some(c"old"), Some(c"new")));
-        let mut slot = Some(c"old\xff".to_owned());
+        assert!(child_needs_restart(
+            false,
+            Some(b"same".as_slice()),
+            Some(b"same".as_slice())
+        ));
+        assert!(!child_needs_restart(
+            true,
+            Some(b"same".as_slice()),
+            Some(b"same".as_slice())
+        ));
+        assert!(child_needs_restart(true, None, Some(b"".as_slice())));
+        assert!(child_needs_restart(true, Some(b"".as_slice()), None));
+        assert!(child_needs_restart(
+            true,
+            Some(b"old".as_slice()),
+            Some(b"new".as_slice())
+        ));
+        let mut slot = Some(b"old\xff".to_vec());
         let command = slot.take();
         assert!(slot.is_none());
-        assert_eq!(command.as_deref(), Some(c"old\xff"));
+        assert_eq!(command.as_deref(), Some(b"old\xff".as_slice()));
         assert!(!child_needs_restart(
             true,
             command.as_deref(),
-            Some(c"old\xff")
+            Some(b"old\xff".as_slice())
         ));
     }
 }
