@@ -1674,31 +1674,27 @@ pub unsafe fn cfg_tiling_drag(
 }
 static mut current_bar: *mut Barconfig = std::ptr::null_mut::<Barconfig>();
 
-pub unsafe fn cfg_bar_font(
-    current_match: *mut Match,
-    result: *mut ConfigResultIR,
-    font: *const ::core::ffi::c_char,
-) {
-    (*current_bar).font = Some(std::ffi::CStr::from_ptr(font).to_owned());
+fn bar_prefix(bytes: &[u8]) -> &[u8] {
+    bytes.split(|&byte| byte == 0).next().unwrap_or_default()
+}
+
+pub unsafe fn cfg_bar_font(current_match: *mut Match, result: *mut ConfigResultIR, font: &[u8]) {
+    (*current_bar).font = Some(bar_prefix(font).to_vec());
 }
 
 pub unsafe fn cfg_bar_separator_symbol(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    separator: *const ::core::ffi::c_char,
+    separator: &[u8],
 ) {
-    (*current_bar).separator_symbol = Some(std::ffi::CStr::from_ptr(separator).to_owned());
+    (*current_bar).separator_symbol = Some(bar_prefix(separator).to_vec());
 }
 
-pub unsafe fn cfg_bar_mode(
-    current_match: *mut Match,
-    result: *mut ConfigResultIR,
-    mode: *const ::core::ffi::c_char,
-) {
-    (*current_bar).mode = if strcmp(mode, c"dock".as_ptr()) == 0 as ::core::ffi::c_int {
+pub unsafe fn cfg_bar_mode(current_match: *mut Match, result: *mut ConfigResultIR, mode: &[u8]) {
+    (*current_bar).mode = if bar_prefix(mode) == b"dock" {
         BarMode::Dock
     } else {
-        if strcmp(mode, c"hide".as_ptr()) == 0 as ::core::ffi::c_int {
+        if bar_prefix(mode) == b"hide" {
             BarMode::Hide
         } else {
             BarMode::Invisible
@@ -1709,32 +1705,25 @@ pub unsafe fn cfg_bar_mode(
 pub unsafe fn cfg_bar_hidden_state(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    hidden_state: *const ::core::ffi::c_char,
+    hidden_state: &[u8],
 ) {
-    (*current_bar).hidden_state =
-        if strcmp(hidden_state, c"hide".as_ptr()) == 0 as ::core::ffi::c_int {
-            BarHiddenState::Hide
-        } else {
-            BarHiddenState::Show
-        };
+    (*current_bar).hidden_state = if bar_prefix(hidden_state) == b"hide" {
+        BarHiddenState::Hide
+    } else {
+        BarHiddenState::Show
+    };
 }
 
-pub unsafe fn cfg_bar_id(
-    current_match: *mut Match,
-    result: *mut ConfigResultIR,
-    bar_id: *const ::core::ffi::c_char,
-) {
-    (*current_bar).id = Some(std::ffi::CStr::from_ptr(bar_id).to_owned());
+pub unsafe fn cfg_bar_id(current_match: *mut Match, result: *mut ConfigResultIR, bar_id: &[u8]) {
+    (*current_bar).id = Some(bar_prefix(bar_id).to_vec());
 }
 
 pub unsafe fn cfg_bar_output(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    output: *const ::core::ffi::c_char,
+    output: &[u8],
 ) {
-    (*current_bar)
-        .outputs
-        .push(std::ffi::CStr::from_ptr(output).to_owned());
+    (*current_bar).outputs.push(bar_prefix(output).to_vec());
 }
 
 pub unsafe fn cfg_bar_verbose(
@@ -1825,32 +1814,26 @@ pub unsafe fn cfg_bar_padding_four(
 pub unsafe fn cfg_bar_modifier(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    modifiers: *const ::core::ffi::c_char,
+    modifiers: Option<&[u8]>,
 ) {
-    (*current_bar).modifier = (if !modifiers.is_null() {
-        event_state_from_str(modifiers) as ::core::ffi::c_long
-    } else {
-        0
-    }) as u32;
+    (*current_bar).modifier = modifiers.map_or(0, |bytes| {
+        // Transitional call into the general binding parser, ported separately.
+        let native = std::ffi::CString::new(bar_prefix(bytes)).unwrap();
+        event_state_from_str(native.as_ptr())
+    });
 }
-unsafe fn bar_configure_binding(
-    button: *const ::core::ffi::c_char,
-    release: *const ::core::ffi::c_char,
-    command: *const ::core::ffi::c_char,
-) {
-    if strncasecmp(button, c"button".as_ptr(), c"button".count_bytes()) != 0 as ::core::ffi::c_int {
+unsafe fn bar_configure_binding(button: &[u8], release: bool, command: &[u8]) {
+    // Actual libc locale/atoi validation keeps the legacy button syntax.
+    let native_button = std::ffi::CString::new(bar_prefix(button)).unwrap();
+    if strncasecmp(
+        native_button.as_ptr(),
+        c"button".as_ptr(),
+        c"button".count_bytes(),
+    ) != 0
+    {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = button;
-            let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
-                None,
-            )
-            .to_vec();
+            let log_value_0 = bar_prefix(button).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
                     "ERROR: Bindings for a bar can only be mouse bindings, not \"{}\", ignoring.\n",
@@ -1868,21 +1851,11 @@ unsafe fn bar_configure_binding(
         };
         return;
     }
-    let input_code: ::core::ffi::c_int =
-        atoi(button.add(c"button".count_bytes())) as ::core::ffi::c_int;
+    let input_code: ::core::ffi::c_int = atoi(native_button.as_ptr().add(c"button".count_bytes()));
     if input_code < 1 as ::core::ffi::c_int {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = button;
-            let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
-                None,
-            )
-            .to_vec();
+            let log_value_0 = bar_prefix(button).to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
                     "ERROR: Button \"{}\" does not seem to be in format 'buttonX'.\n",
@@ -1899,25 +1872,14 @@ unsafe fn bar_configure_binding(
         };
         return;
     }
-    let release_bool: bool = !release.is_null();
+    let release_bool = release;
     let mut current: *mut Barbinding = (*current_bar).bar_bindings.tqh_first;
 
     while !current.is_null() {
-        if (*current).input_code == input_code
-            && (*current).release as ::core::ffi::c_int == release_bool as ::core::ffi::c_int
-        {
+        if (*current).input_code == input_code && (*current).release == release_bool {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = button;
-                let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
-                    None,
-                )
-                .to_vec();
+                let log_value_0 = bar_prefix(button).to_vec();
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::error!(
                         "ERROR: command for button {} was already specified, ignoring.\n",
@@ -1938,7 +1900,7 @@ unsafe fn bar_configure_binding(
     let new_binding = Box::into_raw(Box::new(Barbinding {
         release: release_bool,
         input_code,
-        command: std::ffi::CStr::from_ptr(command).to_owned(),
+        command: bar_prefix(command).to_vec(),
         bindings: crate::application::BarBindingLinks {
             tqe_next: std::ptr::null_mut(),
             tqe_prev: std::ptr::null_mut(),
@@ -1953,20 +1915,11 @@ unsafe fn bar_configure_binding(
 pub unsafe fn cfg_bar_wheel_up_cmd(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    command: *const ::core::ffi::c_char,
+    command: &[u8],
 ) {
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = command;
-        let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
-            None,
-        )
-        .to_vec();
+        let log_value_0 = bar_prefix(command).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::error!(
                 "ERROR: 'wheel_up_cmd' is deprecated. Please use 'bindsym button4 {}' instead.\n",
@@ -1982,30 +1935,17 @@ pub unsafe fn cfg_bar_wheel_up_cmd(
             i3_common::logging::emit(i3_common::logging::Level::Error, &message);
         }
     };
-    bar_configure_binding(
-        c"button4".as_ptr(),
-        ::core::ptr::null::<::core::ffi::c_char>(),
-        command,
-    );
+    bar_configure_binding(b"button4", false, command);
 }
 
 pub unsafe fn cfg_bar_wheel_down_cmd(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    command: *const ::core::ffi::c_char,
+    command: &[u8],
 ) {
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = command;
-        let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
-            None,
-        )
-        .to_vec();
+        let log_value_0 = bar_prefix(command).to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::error!(
                 "ERROR: 'wheel_down_cmd' is deprecated. Please use 'bindsym button5 {}' instead.\n",
@@ -2021,19 +1961,15 @@ pub unsafe fn cfg_bar_wheel_down_cmd(
             i3_common::logging::emit(i3_common::logging::Level::Error, &message);
         }
     };
-    bar_configure_binding(
-        c"button5".as_ptr(),
-        ::core::ptr::null::<::core::ffi::c_char>(),
-        command,
-    );
+    bar_configure_binding(b"button5", false, command);
 }
 
 pub unsafe fn cfg_bar_bindsym(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    button: *const ::core::ffi::c_char,
-    release: *const ::core::ffi::c_char,
-    command: *const ::core::ffi::c_char,
+    button: &[u8],
+    release: bool,
+    command: &[u8],
 ) {
     bar_configure_binding(button, release, command);
 }
@@ -2041,9 +1977,9 @@ pub unsafe fn cfg_bar_bindsym(
 pub unsafe fn cfg_bar_position(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    position: *const ::core::ffi::c_char,
+    position: &[u8],
 ) {
-    (*current_bar).position = if strcmp(position, c"top".as_ptr()) == 0 as ::core::ffi::c_int {
+    (*current_bar).position = if bar_prefix(position) == b"top" {
         BarPosition::Top
     } else {
         BarPosition::Bottom
@@ -2053,92 +1989,67 @@ pub unsafe fn cfg_bar_position(
 pub unsafe fn cfg_bar_i3bar_command(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    i3bar_command: *const ::core::ffi::c_char,
+    i3bar_command: &[u8],
 ) {
-    (*current_bar).i3bar_command = Some(std::ffi::CStr::from_ptr(i3bar_command).to_owned());
+    (*current_bar).i3bar_command = Some(bar_prefix(i3bar_command).to_vec());
 }
 
 pub unsafe fn cfg_bar_color(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    colorclass: *const ::core::ffi::c_char,
-    border: *const ::core::ffi::c_char,
-    background: *const ::core::ffi::c_char,
-    text: *const ::core::ffi::c_char,
+    colorclass: &[u8],
+    border: &[u8],
+    background: &[u8],
+    text: Option<&[u8]>,
 ) {
-    if strcmp(colorclass, c"focused_workspace".as_ptr()) == 0 as ::core::ffi::c_int {
-        if !text.is_null() {
-            (*current_bar).colors.focused_workspace_border =
-                Some(std::ffi::CStr::from_ptr(border).to_owned());
-            (*current_bar).colors.focused_workspace_bg =
-                Some(std::ffi::CStr::from_ptr(background).to_owned());
-            (*current_bar).colors.focused_workspace_text =
-                Some(std::ffi::CStr::from_ptr(text).to_owned());
+    if bar_prefix(colorclass) == b"focused_workspace" {
+        if let Some(text) = text {
+            (*current_bar).colors.focused_workspace_border = Some(bar_prefix(border).to_vec());
+            (*current_bar).colors.focused_workspace_bg = Some(bar_prefix(background).to_vec());
+            (*current_bar).colors.focused_workspace_text = Some(bar_prefix(text).to_vec());
         } else {
-            (*current_bar).colors.focused_workspace_bg =
-                Some(std::ffi::CStr::from_ptr(background).to_owned());
-            (*current_bar).colors.focused_workspace_text =
-                Some(std::ffi::CStr::from_ptr(border).to_owned());
+            (*current_bar).colors.focused_workspace_bg = Some(bar_prefix(background).to_vec());
+            (*current_bar).colors.focused_workspace_text = Some(bar_prefix(border).to_vec());
         }
     }
-    if strcmp(colorclass, c"active_workspace".as_ptr()) == 0 as ::core::ffi::c_int {
-        if !text.is_null() {
-            (*current_bar).colors.active_workspace_border =
-                Some(std::ffi::CStr::from_ptr(border).to_owned());
-            (*current_bar).colors.active_workspace_bg =
-                Some(std::ffi::CStr::from_ptr(background).to_owned());
-            (*current_bar).colors.active_workspace_text =
-                Some(std::ffi::CStr::from_ptr(text).to_owned());
+    if bar_prefix(colorclass) == b"active_workspace" {
+        if let Some(text) = text {
+            (*current_bar).colors.active_workspace_border = Some(bar_prefix(border).to_vec());
+            (*current_bar).colors.active_workspace_bg = Some(bar_prefix(background).to_vec());
+            (*current_bar).colors.active_workspace_text = Some(bar_prefix(text).to_vec());
         } else {
-            (*current_bar).colors.active_workspace_bg =
-                Some(std::ffi::CStr::from_ptr(background).to_owned());
-            (*current_bar).colors.active_workspace_text =
-                Some(std::ffi::CStr::from_ptr(border).to_owned());
+            (*current_bar).colors.active_workspace_bg = Some(bar_prefix(background).to_vec());
+            (*current_bar).colors.active_workspace_text = Some(bar_prefix(border).to_vec());
         }
     }
-    if strcmp(colorclass, c"inactive_workspace".as_ptr()) == 0 as ::core::ffi::c_int {
-        if !text.is_null() {
-            (*current_bar).colors.inactive_workspace_border =
-                Some(std::ffi::CStr::from_ptr(border).to_owned());
-            (*current_bar).colors.inactive_workspace_bg =
-                Some(std::ffi::CStr::from_ptr(background).to_owned());
-            (*current_bar).colors.inactive_workspace_text =
-                Some(std::ffi::CStr::from_ptr(text).to_owned());
+    if bar_prefix(colorclass) == b"inactive_workspace" {
+        if let Some(text) = text {
+            (*current_bar).colors.inactive_workspace_border = Some(bar_prefix(border).to_vec());
+            (*current_bar).colors.inactive_workspace_bg = Some(bar_prefix(background).to_vec());
+            (*current_bar).colors.inactive_workspace_text = Some(bar_prefix(text).to_vec());
         } else {
-            (*current_bar).colors.inactive_workspace_bg =
-                Some(std::ffi::CStr::from_ptr(background).to_owned());
-            (*current_bar).colors.inactive_workspace_text =
-                Some(std::ffi::CStr::from_ptr(border).to_owned());
+            (*current_bar).colors.inactive_workspace_bg = Some(bar_prefix(background).to_vec());
+            (*current_bar).colors.inactive_workspace_text = Some(bar_prefix(border).to_vec());
         }
     }
-    if strcmp(colorclass, c"urgent_workspace".as_ptr()) == 0 as ::core::ffi::c_int {
-        if !text.is_null() {
-            (*current_bar).colors.urgent_workspace_border =
-                Some(std::ffi::CStr::from_ptr(border).to_owned());
-            (*current_bar).colors.urgent_workspace_bg =
-                Some(std::ffi::CStr::from_ptr(background).to_owned());
-            (*current_bar).colors.urgent_workspace_text =
-                Some(std::ffi::CStr::from_ptr(text).to_owned());
+    if bar_prefix(colorclass) == b"urgent_workspace" {
+        if let Some(text) = text {
+            (*current_bar).colors.urgent_workspace_border = Some(bar_prefix(border).to_vec());
+            (*current_bar).colors.urgent_workspace_bg = Some(bar_prefix(background).to_vec());
+            (*current_bar).colors.urgent_workspace_text = Some(bar_prefix(text).to_vec());
         } else {
-            (*current_bar).colors.urgent_workspace_bg =
-                Some(std::ffi::CStr::from_ptr(background).to_owned());
-            (*current_bar).colors.urgent_workspace_text =
-                Some(std::ffi::CStr::from_ptr(border).to_owned());
+            (*current_bar).colors.urgent_workspace_bg = Some(bar_prefix(background).to_vec());
+            (*current_bar).colors.urgent_workspace_text = Some(bar_prefix(border).to_vec());
         }
     }
-    if strcmp(colorclass, c"binding_mode".as_ptr()) == 0 as ::core::ffi::c_int {
-        if !text.is_null() {
-            (*current_bar).colors.binding_mode_border =
-                Some(std::ffi::CStr::from_ptr(border).to_owned());
-            (*current_bar).colors.binding_mode_bg =
-                Some(std::ffi::CStr::from_ptr(background).to_owned());
-            (*current_bar).colors.binding_mode_text =
-                Some(std::ffi::CStr::from_ptr(text).to_owned());
+    if bar_prefix(colorclass) == b"binding_mode" {
+        if let Some(text) = text {
+            (*current_bar).colors.binding_mode_border = Some(bar_prefix(border).to_vec());
+            (*current_bar).colors.binding_mode_bg = Some(bar_prefix(background).to_vec());
+            (*current_bar).colors.binding_mode_text = Some(bar_prefix(text).to_vec());
         } else {
-            (*current_bar).colors.binding_mode_bg =
-                Some(std::ffi::CStr::from_ptr(background).to_owned());
-            (*current_bar).colors.binding_mode_text =
-                Some(std::ffi::CStr::from_ptr(border).to_owned());
+            (*current_bar).colors.binding_mode_bg = Some(bar_prefix(background).to_vec());
+            (*current_bar).colors.binding_mode_text = Some(bar_prefix(border).to_vec());
         }
     }
 }
@@ -2146,18 +2057,18 @@ pub unsafe fn cfg_bar_color(
 pub unsafe fn cfg_bar_socket_path(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    socket_path: *const ::core::ffi::c_char,
+    socket_path: &std::path::Path,
 ) {
-    (*current_bar).socket_path = Some(std::ffi::CStr::from_ptr(socket_path).to_owned());
+    (*current_bar).socket_path = Some(socket_path.to_owned());
 }
 
 pub unsafe fn cfg_bar_tray_output(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    output: *const ::core::ffi::c_char,
+    output: &[u8],
 ) {
     let tray_output = Box::into_raw(Box::new(tray_output_t {
-        output: std::ffi::CStr::from_ptr(output).to_owned(),
+        output: bar_prefix(output).to_vec(),
         tray_outputs: crate::application::TrayOutputLinks {
             tqe_next: std::ptr::null_mut(),
             tqe_prev: std::ptr::null_mut(),
@@ -2180,38 +2091,38 @@ pub unsafe fn cfg_bar_tray_padding(
 pub unsafe fn cfg_bar_color_single(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    colorclass: *const ::core::ffi::c_char,
-    color: *const ::core::ffi::c_char,
+    colorclass: &[u8],
+    color: &[u8],
 ) {
-    if strcmp(colorclass, c"background".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*current_bar).colors.background = Some(std::ffi::CStr::from_ptr(color).to_owned());
-    } else if strcmp(colorclass, c"separator".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*current_bar).colors.separator = Some(std::ffi::CStr::from_ptr(color).to_owned());
-    } else if strcmp(colorclass, c"statusline".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*current_bar).colors.statusline = Some(std::ffi::CStr::from_ptr(color).to_owned());
-    } else if strcmp(colorclass, c"focused_background".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*current_bar).colors.focused_background = Some(std::ffi::CStr::from_ptr(color).to_owned());
-    } else if strcmp(colorclass, c"focused_separator".as_ptr()) == 0 as ::core::ffi::c_int {
-        (*current_bar).colors.focused_separator = Some(std::ffi::CStr::from_ptr(color).to_owned());
+    if bar_prefix(colorclass) == b"background" {
+        (*current_bar).colors.background = Some(bar_prefix(color).to_vec());
+    } else if bar_prefix(colorclass) == b"separator" {
+        (*current_bar).colors.separator = Some(bar_prefix(color).to_vec());
+    } else if bar_prefix(colorclass) == b"statusline" {
+        (*current_bar).colors.statusline = Some(bar_prefix(color).to_vec());
+    } else if bar_prefix(colorclass) == b"focused_background" {
+        (*current_bar).colors.focused_background = Some(bar_prefix(color).to_vec());
+    } else if bar_prefix(colorclass) == b"focused_separator" {
+        (*current_bar).colors.focused_separator = Some(bar_prefix(color).to_vec());
     } else {
-        (*current_bar).colors.focused_statusline = Some(std::ffi::CStr::from_ptr(color).to_owned());
+        (*current_bar).colors.focused_statusline = Some(bar_prefix(color).to_vec());
     };
 }
 
 pub unsafe fn cfg_bar_status_command(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    command: *const ::core::ffi::c_char,
+    command: &[u8],
 ) {
-    (*current_bar).status_command = Some(std::ffi::CStr::from_ptr(command).to_owned());
+    (*current_bar).status_command = Some(bar_prefix(command).to_vec());
 }
 
 pub unsafe fn cfg_bar_workspace_command(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    command: *const ::core::ffi::c_char,
+    command: &[u8],
 ) {
-    (*current_bar).workspace_command = Some(std::ffi::CStr::from_ptr(command).to_owned());
+    (*current_bar).workspace_command = Some(bar_prefix(command).to_vec());
 }
 
 pub unsafe fn cfg_bar_binding_mode_indicator(
@@ -2267,8 +2178,7 @@ pub unsafe fn cfg_bar_start(current_match: *mut Match, result: *mut ConfigResult
 pub unsafe fn cfg_bar_finish(current_match: *mut Match, result: *mut ConfigResultIR) {
     ::log::debug!("../src/config_directives.c:cfg_bar_finish:959 - \t new bar configuration finished, saving.\n");
     if (*current_bar).id.is_none() {
-        (*current_bar).id =
-            Some(std::ffi::CString::new(format!("bar-{}", config.number_barconfigs)).unwrap());
+        (*current_bar).id = Some(format!("bar-{}", config.number_barconfigs).into_bytes());
     }
     config.number_barconfigs += 1;
     (*current_bar).configs.tqe_next = ::core::ptr::null_mut::<Barconfig>();

@@ -82,7 +82,7 @@ use crate::parser_util::parser_push_long;
 use crate::parser_util::parser_push_string;
 use crate::types::ParseFileResult;
 use i3_common::safewrappers::sasprintf;
-use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::{OsStrExt, OsStringExt};
 /*
  * vim:ts=4:sw=4:expandtab
  *
@@ -4338,11 +4338,13 @@ unsafe fn GENERATED_call(
         }
         20 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_workspace_command(
-                current_match,
-                result,
-                parser_get_string(stack, c"command".as_ptr()),
-            );
+            {
+                let bar_arg_command =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_workspace_command(current_match, result, &bar_arg_command);
+            }
         }
         21 => {
             (*result).next_state = ConfigParserState::Initial;
@@ -4365,11 +4367,13 @@ unsafe fn GENERATED_call(
         }
         23 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_separator_symbol(
-                current_match,
-                result,
-                parser_get_string(stack, c"separator".as_ptr()),
-            );
+            {
+                let bar_arg_separator =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"separator".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_separator_symbol(current_match, result, &bar_arg_separator);
+            }
         }
         24 => {
             (*result).next_state = ConfigParserState::Initial;
@@ -4386,13 +4390,23 @@ unsafe fn GENERATED_call(
         }
         25 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_bindsym(
-                current_match,
-                result,
-                parser_get_string(stack, c"button".as_ptr()),
-                parser_get_string(stack, c"release".as_ptr()),
-                parser_get_string(stack, c"command".as_ptr()),
-            );
+            {
+                let bar_arg_button =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"button".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_arg_command =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_bindsym(
+                    current_match,
+                    result,
+                    &bar_arg_button,
+                    !(parser_get_string(stack, c"release".as_ptr())).is_null(),
+                    &bar_arg_command,
+                );
+            }
         }
         26 => {
             (*result).next_state = ConfigParserState::Bar;
@@ -4451,19 +4465,23 @@ unsafe fn GENERATED_call(
         }
         32 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_status_command(
-                current_match,
-                result,
-                parser_get_string(stack, c"command".as_ptr()),
-            );
+            {
+                let bar_arg_command =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_status_command(current_match, result, &bar_arg_command);
+            }
         }
         33 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_wheel_down_cmd(
-                current_match,
-                result,
-                parser_get_string(stack, c"command".as_ptr()),
-            );
+            {
+                let bar_arg_command =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_wheel_down_cmd(current_match, result, &bar_arg_command);
+            }
         }
         34 => {
             (*result).next_state = ConfigParserState::Initial;
@@ -4501,12 +4519,17 @@ unsafe fn GENERATED_call(
         }
         37 => {
             (*result).next_state = ConfigParserState::BarColors;
-            cfg_bar_color_single(
-                current_match,
-                result,
-                parser_get_string(stack, c"colorclass".as_ptr()),
-                parser_get_string(stack, c"color".as_ptr()),
-            );
+            {
+                let bar_arg_colorclass =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"colorclass".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_arg_color =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"color".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_color_single(current_match, result, &bar_arg_colorclass, &bar_arg_color);
+            }
         }
         38 => {
             (*result).next_state = ConfigParserState::Bar;
@@ -4656,19 +4679,23 @@ unsafe fn GENERATED_call(
         }
         53 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_hidden_state(
-                current_match,
-                result,
-                parser_get_string(stack, c"hidden_state".as_ptr()),
-            );
+            {
+                let bar_arg_hidden_state =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"hidden_state".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_hidden_state(current_match, result, &bar_arg_hidden_state);
+            }
         }
         54 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_hidden_state(
-                current_match,
-                result,
-                parser_get_string(stack, c"hidden_state".as_ptr()),
-            );
+            {
+                let bar_arg_hidden_state =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"hidden_state".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_hidden_state(current_match, result, &bar_arg_hidden_state);
+            }
         }
         55 => {
             (*result).next_state = ConfigParserState::Bar;
@@ -4683,11 +4710,13 @@ unsafe fn GENERATED_call(
         }
         56 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_wheel_up_cmd(
-                current_match,
-                result,
-                parser_get_string(stack, c"command".as_ptr()),
-            );
+            {
+                let bar_arg_command =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_wheel_up_cmd(current_match, result, &bar_arg_command);
+            }
         }
         57 => {
             (*result).next_state = ConfigParserState::Initial;
@@ -4754,33 +4783,73 @@ unsafe fn GENERATED_call(
         }
         64 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_i3bar_command(
-                current_match,
-                result,
-                parser_get_string(stack, c"command".as_ptr()),
-            );
+            {
+                let bar_arg_i3bar_command =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"command".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_i3bar_command(current_match, result, &bar_arg_i3bar_command);
+            }
         }
         65 => {
             (*result).next_state = ConfigParserState::BarColors;
-            cfg_bar_color(
-                current_match,
-                result,
-                parser_get_string(stack, c"colorclass".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
-                parser_get_string(stack, c"background".as_ptr()),
-                ::core::ptr::null::<::core::ffi::c_char>(),
-            );
+            {
+                let bar_arg_colorclass =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"colorclass".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_arg_border =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"border".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_arg_background =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"background".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_arg_text = {
+                    let raw = ::core::ptr::null::<::core::ffi::c_char>();
+                    raw.as_ref()
+                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
+                };
+                cfg_bar_color(
+                    current_match,
+                    result,
+                    &bar_arg_colorclass,
+                    &bar_arg_border,
+                    &bar_arg_background,
+                    bar_arg_text.as_deref(),
+                );
+            }
         }
         66 => {
             (*result).next_state = ConfigParserState::BarColors;
-            cfg_bar_color(
-                current_match,
-                result,
-                parser_get_string(stack, c"colorclass".as_ptr()),
-                parser_get_string(stack, c"border".as_ptr()),
-                parser_get_string(stack, c"background".as_ptr()),
-                parser_get_string(stack, c"text".as_ptr()),
-            );
+            {
+                let bar_arg_colorclass =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"colorclass".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_arg_border =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"border".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_arg_background =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"background".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_arg_text = {
+                    let raw = parser_get_string(stack, c"text".as_ptr());
+                    raw.as_ref()
+                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
+                };
+                cfg_bar_color(
+                    current_match,
+                    result,
+                    &bar_arg_colorclass,
+                    &bar_arg_border,
+                    &bar_arg_background,
+                    bar_arg_text.as_deref(),
+                );
+            }
         }
         67 => {
             (*result).next_state = ConfigParserState::Bar;
@@ -4792,19 +4861,25 @@ unsafe fn GENERATED_call(
         }
         68 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_socket_path(
-                current_match,
-                result,
-                parser_get_string(stack, c"path".as_ptr()),
-            );
+            {
+                let bar_arg_socket_path =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"path".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_arg_socket_path =
+                    std::path::PathBuf::from(std::ffi::OsString::from_vec(bar_arg_socket_path));
+                cfg_bar_socket_path(current_match, result, &bar_arg_socket_path);
+            }
         }
         69 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_tray_output(
-                current_match,
-                result,
-                parser_get_string(stack, c"output".as_ptr()),
-            );
+            {
+                let bar_arg_output =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"output".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_tray_output(current_match, result, &bar_arg_output);
+            }
         }
         70 => {
             (*result).next_state = ConfigParserState::Initial;
@@ -5120,43 +5195,56 @@ unsafe fn GENERATED_call(
         }
         101 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_modifier(
-                current_match,
-                result,
-                ::core::ptr::null::<::core::ffi::c_char>(),
-            );
+            {
+                let bar_arg_modifiers = {
+                    let raw = ::core::ptr::null::<::core::ffi::c_char>();
+                    raw.as_ref()
+                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
+                };
+                cfg_bar_modifier(current_match, result, bar_arg_modifiers.as_deref());
+            }
         }
         102 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_modifier(
-                current_match,
-                result,
-                ::core::ptr::null::<::core::ffi::c_char>(),
-            );
+            {
+                let bar_arg_modifiers = {
+                    let raw = ::core::ptr::null::<::core::ffi::c_char>();
+                    raw.as_ref()
+                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
+                };
+                cfg_bar_modifier(current_match, result, bar_arg_modifiers.as_deref());
+            }
         }
         103 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_modifier(
-                current_match,
-                result,
-                parser_get_string(stack, c"modifiers".as_ptr()),
-            );
+            {
+                let bar_arg_modifiers = {
+                    let raw = parser_get_string(stack, c"modifiers".as_ptr());
+                    raw.as_ref()
+                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
+                };
+                cfg_bar_modifier(current_match, result, bar_arg_modifiers.as_deref());
+            }
         }
         104 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_position(
-                current_match,
-                result,
-                parser_get_string(stack, c"position".as_ptr()),
-            );
+            {
+                let bar_arg_position =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"position".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_position(current_match, result, &bar_arg_position);
+            }
         }
         105 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_position(
-                current_match,
-                result,
-                parser_get_string(stack, c"position".as_ptr()),
-            );
+            {
+                let bar_arg_position =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"position".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_position(current_match, result, &bar_arg_position);
+            }
         }
         106 => {
             (*result).next_state = ConfigParserState::Initial;
@@ -5289,11 +5377,13 @@ unsafe fn GENERATED_call(
         }
         121 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_output(
-                current_match,
-                result,
-                parser_get_string(stack, c"output".as_ptr()),
-            );
+            {
+                let bar_arg_output =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"output".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_output(current_match, result, &bar_arg_output);
+            }
         }
         122 => {
             (*result).next_state = ConfigParserState::Criteria;
@@ -5458,35 +5548,43 @@ unsafe fn GENERATED_call(
         }
         139 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_font(
-                current_match,
-                result,
-                parser_get_string(stack, c"font".as_ptr()),
-            );
+            {
+                let bar_arg_font =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"font".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_font(current_match, result, &bar_arg_font);
+            }
         }
         140 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_mode(
-                current_match,
-                result,
-                parser_get_string(stack, c"mode".as_ptr()),
-            );
+            {
+                let bar_arg_mode =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"mode".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_mode(current_match, result, &bar_arg_mode);
+            }
         }
         141 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_mode(
-                current_match,
-                result,
-                parser_get_string(stack, c"mode".as_ptr()),
-            );
+            {
+                let bar_arg_mode =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"mode".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_mode(current_match, result, &bar_arg_mode);
+            }
         }
         142 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_mode(
-                current_match,
-                result,
-                parser_get_string(stack, c"mode".as_ptr()),
-            );
+            {
+                let bar_arg_mode =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"mode".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_mode(current_match, result, &bar_arg_mode);
+            }
         }
         143 => {
             (*result).next_state = ConfigParserState::Criteria;
@@ -5559,11 +5657,13 @@ unsafe fn GENERATED_call(
         }
         152 => {
             (*result).next_state = ConfigParserState::Bar;
-            cfg_bar_id(
-                current_match,
-                result,
-                parser_get_string(stack, c"bar_id".as_ptr()),
-            );
+            {
+                let bar_arg_bar_id =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"bar_id".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                cfg_bar_id(current_match, result, &bar_arg_bar_id);
+            }
         }
         153 => {
             (*result).next_state = ConfigParserState::Initial;

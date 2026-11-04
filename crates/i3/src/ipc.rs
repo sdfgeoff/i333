@@ -321,6 +321,7 @@ pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: ::core::ffi::c_int
 pub enum CommandReply<'a> {
     Success(bool),
     Error(&'a CStr),
+    ErrorBytes(&'a [u8]),
     WithId(i64),
     ParseError {
         error: &'a CStr,
@@ -332,16 +333,15 @@ pub enum CommandReply<'a> {
 enum ReplyField<'a> {
     Bool(bool),
     Integer(i64),
-    Text(&'a CStr),
+    Text(&'a [u8]),
 }
 impl serde::Serialize for ReplyField<'_> {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
             Self::Bool(value) => serializer.serialize_bool(*value),
             Self::Integer(value) => serializer.serialize_i64(*value),
-            Self::Text(value) => {
-                serializer.serialize_str(value.to_str().map_err(serde::ser::Error::custom)?)
-            }
+            Self::Text(value) => serializer
+                .serialize_str(std::str::from_utf8(value).map_err(serde::ser::Error::custom)?),
         }
     }
 }
@@ -350,7 +350,14 @@ impl CommandReply<'_> {
         use ReplyField::*;
         match self {
             Self::Success(value) => vec![("success", Bool(*value))],
-            Self::Error(error) => vec![("success", Bool(false)), ("error", Text(error))],
+            Self::Error(error) => vec![("success", Bool(false)), ("error", Text(error.to_bytes()))],
+            Self::ErrorBytes(error) => vec![
+                ("success", Bool(false)),
+                (
+                    "error",
+                    Text(error.split(|&byte| byte == 0).next().unwrap()),
+                ),
+            ],
             Self::WithId(id) => vec![("success", Bool(true)), ("id", Integer(*id))],
             Self::ParseError {
                 error,
@@ -359,16 +366,16 @@ impl CommandReply<'_> {
             } => vec![
                 ("success", Bool(false)),
                 ("parse_error", Bool(true)),
-                ("error", Text(error)),
-                ("input", Text(input)),
-                ("errorposition", Text(position)),
+                ("error", Text(error.to_bytes())),
+                ("input", Text(input.to_bytes())),
+                ("errorposition", Text(position.to_bytes())),
             ],
         }
     }
     fn valid(&self) -> bool {
         self.fields()
             .iter()
-            .all(|(_, value)| !matches!(value, ReplyField::Text(text) if text.to_str().is_err()))
+            .all(|(_, value)| !matches!(value, ReplyField::Text(text) if std::str::from_utf8(text).is_err()))
     }
     fn legacy(&self, output: &mut i3_common::json_rejection::RejectedOutput) {
         let fields = self.fields();
@@ -386,7 +393,7 @@ impl CommandReply<'_> {
                     let _ = output.integer(value);
                 }
                 ReplyField::Text(value) => {
-                    if let Ok(value) = value.to_str() {
+                    if let Ok(value) = std::str::from_utf8(value) {
                         let _ = output.string(value);
                     }
                 }
@@ -596,8 +603,8 @@ fn gap_values(gaps: gaps_t) -> messages::Gaps {
         left: gaps.left as i64,
     }
 }
-fn owned_optional_text(value: Option<&CStr>) -> messages::Omitted<messages::NativeText> {
-    messages::Omitted(value.map(messages::NativeText::cstr))
+fn owned_optional_text(value: Option<&[u8]>) -> messages::Omitted<messages::NativeText> {
+    messages::Omitted(value.map(messages::NativeText::bytes))
 }
 unsafe fn optional_text(value: *const libc::c_char) -> messages::Omitted<messages::NativeText> {
     messages::Omitted((!value.is_null()).then(|| native_text(value)))
@@ -999,30 +1006,38 @@ unsafe fn dump_node_stream(
     let _ = output.end_object();
 }
 
-unsafe fn canonicalize_output_name(name: *const ::core::ffi::c_char) -> *const ::core::ffi::c_char {
-    if strcasecmp(name, c"primary".as_ptr()) == 0 as ::core::ffi::c_int
-        || strcasecmp(name, c"nonprimary".as_ptr()) == 0 as ::core::ffi::c_int
+unsafe fn canonicalize_output_name(name: &[u8]) -> Vec<u8> {
+    // Transitional bridge to the core output-name graph's not-yet-ported lookup.
+    // The bar API/storage remains bounded Rust bytes; the output-name owner
+    // family will remove this C-string application boundary separately.
+    let native = CString::new(name.split(|&byte| byte == 0).next().unwrap()).unwrap();
+    if strcasecmp(native.as_ptr(), c"primary".as_ptr()) == 0
+        || strcasecmp(native.as_ptr(), c"nonprimary".as_ptr()) == 0
     {
-        return name;
+        return native.into_bytes();
     }
-    let output: *mut Output = get_output_by_name(name, false);
-    if !output.is_null() {
-        output_primary_name(output)
+    let output = get_output_by_name(native.as_ptr(), false);
+    if output.is_null() {
+        native.into_bytes()
     } else {
-        name
+        CStr::from_ptr(output_primary_name(output))
+            .to_bytes()
+            .to_vec()
     }
 }
 unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
     use messages::Omitted;
     let mut configured_outputs = Vec::new();
     for output in &(*config).outputs {
-        configured_outputs.push(native_text(canonicalize_output_name(output.as_ptr())));
+        configured_outputs.push(messages::NativeText::bytes(&canonicalize_output_name(
+            output,
+        )));
     }
     let mut trays = Vec::new();
     let mut tray = (*config).tray_outputs.tqh_first;
     while !tray.is_null() {
-        trays.push(native_text(canonicalize_output_name(
-            (*tray).output.as_ptr(),
+        trays.push(messages::NativeText::bytes(&canonicalize_output_name(
+            &(*tray).output,
         )));
         tray = (*tray).tray_outputs.tqe_next;
     }
@@ -1031,7 +1046,7 @@ unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
     while !binding.is_null() {
         bindings.push(messages::BarBinding {
             input_code: (*binding).input_code as i64,
-            command: messages::NativeText::cstr(&(*binding).command),
+            command: messages::NativeText::bytes(&(*binding).command),
             release: (*binding).release,
         });
         binding = (*binding).bindings.tqe_next;
@@ -1078,11 +1093,16 @@ unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
         binding_mode_text: owned_optional_text((*config).colors.binding_mode_text.as_deref()),
     };
     messages::BarConfig {
-        id: messages::NativeText::cstr((*config).id()),
+        id: messages::NativeText::bytes((*config).id()),
         outputs: Omitted((!(*config).outputs.is_empty()).then_some(configured_outputs)),
         tray_outputs: Omitted((!trays.is_empty()).then_some(trays)),
         tray_padding: (*config).tray_padding as i64,
-        socket_path: owned_optional_text((*config).socket_path.as_deref()),
+        socket_path: owned_optional_text(
+            (*config)
+                .socket_path
+                .as_deref()
+                .map(|path| path.as_os_str().as_bytes()),
+        ),
         mode: match (*config).mode as u32 {
             1 => "hide",
             2 => "invisible",
@@ -1250,27 +1270,17 @@ unsafe fn handle_get_bar_config(
         let mut names = Vec::new();
         let mut current = barconfigs.tqh_first;
         while !current.is_null() {
-            names.push(messages::NativeText::cstr((*current).id()));
+            names.push(messages::NativeText::bytes((*current).id()));
             current = (*current).configs.tqe_next;
         }
         send_typed_reply(client, I3_IPC_REPLY_TYPE_BAR_CONFIG as u32, &names);
         return;
     }
     let bar_bytes = std::slice::from_raw_parts(message, message_size as usize);
-    let bar_id_owner = CString::new(bar_bytes.split(|byte| *byte == 0).next().unwrap()).unwrap();
-    let bar_id = bar_id_owner.as_ptr();
+    let bar_id = bar_bytes.split(|byte| *byte == 0).next().unwrap().to_vec();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = bar_id;
-        let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
-            None,
-        )
-        .to_vec();
+        let log_value_0 = bar_id.clone();
         if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
             ::log::info!(
                 "IPC: looking for config for bar ID \"{}\"\n",
@@ -1291,7 +1301,7 @@ unsafe fn handle_get_bar_config(
     let mut config: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     current_0 = barconfigs.tqh_first;
     while !current_0.is_null() {
-        if strcmp((*current_0).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int {
+        if (*current_0).id() != bar_id.as_slice() {
             current_0 = (*current_0).configs.tqe_next;
         } else {
             config = current_0;
@@ -1928,18 +1938,11 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
 }
 
 pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
+    let id = (*barconfig).id().to_vec();
+    let snapshot = snapshot_bar_config(barconfig);
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = (*barconfig).id().as_ptr();
-        let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
-            None,
-        )
-        .to_vec();
+        let log_value_0 = id;
         if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
             ::log::debug!("../src/ipc.c:ipc_send_barconfig_update_event:1674 - Issue barconfig_update event for id = {}\n", log_value_0_text);
         } else {
@@ -1947,7 +1950,8 @@ pub unsafe fn ipc_send_barconfig_update_event(barconfig: *mut Barconfig) {
         }
     };
     let locale = NumericLocale::c();
-    let payload = snapshot_bar_config(barconfig).to_bytes();
+    let payload = snapshot.to_bytes();
+
     let length = payload.len();
     ipc_send_event(
         b"barconfig_update",
@@ -2281,6 +2285,17 @@ mod typed_reply_tests {
     #[test]
     fn invalid_native_strings_preserve_rejected_value_and_partial_stream() {
         let invalid = c"\xff";
+        assert_eq!(
+            stream(&[
+                CommandReply::ErrorBytes(b"\xff\0ignored"),
+                CommandReply::Success(true)
+            ]),
+            stream(&[CommandReply::Error(invalid), CommandReply::Success(true)]),
+        );
+        assert_eq!(
+            stream(&[CommandReply::ErrorBytes(b"quoted \"value\"\n\0ignored")]),
+            stream(&[CommandReply::Error(c"quoted \"value\"\n")]),
+        );
         assert_eq!(
             stream(&[CommandReply::Error(invalid), CommandReply::Success(true)]),
             br#"[{"success":false,"error""#

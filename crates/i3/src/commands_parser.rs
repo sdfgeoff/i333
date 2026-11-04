@@ -2936,12 +2936,19 @@ unsafe fn GENERATED_call(
         }
         15 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_bar_hidden_state(
-                current_match,
-                result,
-                parser_get_string(stack, c"bar_value".as_ptr()),
-                parser_get_string(stack, c"bar_id".as_ptr()),
-            );
+            {
+                let bar_value =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"bar_value".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_id = {
+                    let pointer = parser_get_string(stack, c"bar_id".as_ptr());
+                    pointer
+                        .as_ref()
+                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
+                };
+                cmd_bar_hidden_state(current_match, result, &bar_value, bar_id.as_deref());
+            }
         }
         16 => {
             (*result).next_state = CommandParserState::Initial;
@@ -3381,12 +3388,19 @@ unsafe fn GENERATED_call(
         }
         66 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_bar_mode(
-                current_match,
-                result,
-                parser_get_string(stack, c"bar_value".as_ptr()),
-                parser_get_string(stack, c"bar_id".as_ptr()),
-            );
+            {
+                let bar_value =
+                    std::ffi::CStr::from_ptr(parser_get_string(stack, c"bar_value".as_ptr()))
+                        .to_bytes()
+                        .to_vec();
+                let bar_id = {
+                    let pointer = parser_get_string(stack, c"bar_id".as_ptr());
+                    pointer
+                        .as_ref()
+                        .map(|value| std::ffi::CStr::from_ptr(value).to_bytes().to_vec())
+                };
+                cmd_bar_mode(current_match, result, &bar_value, bar_id.as_deref());
+            }
         }
         67 => {
             (*result).next_state = CommandParserState::Initial;

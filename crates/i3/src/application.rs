@@ -233,23 +233,23 @@ pub struct assignments_head {
 pub type tiling_drag_t = TilingDrag;
 
 pub struct Barconfig {
-    pub id: Option<std::ffi::CString>,
-    pub outputs: Vec<std::ffi::CString>,
+    pub id: Option<Vec<u8>>,
+    pub outputs: Vec<Vec<u8>>,
     pub tray_outputs: tray_outputs_head,
-    pub tray_padding: ::core::ffi::c_int,
-    pub socket_path: Option<std::ffi::CString>,
+    pub tray_padding: i32,
+    pub socket_path: Option<std::path::PathBuf>,
     pub mode: BarMode,
     pub hidden_state: BarHiddenState,
     pub modifier: u32,
     pub bar_bindings: bar_bindings_head,
     pub position: BarPosition,
-    pub i3bar_command: Option<std::ffi::CString>,
-    pub status_command: Option<std::ffi::CString>,
-    pub workspace_command: Option<std::ffi::CString>,
-    pub font: Option<std::ffi::CString>,
-    pub separator_symbol: Option<std::ffi::CString>,
+    pub i3bar_command: Option<Vec<u8>>,
+    pub status_command: Option<Vec<u8>>,
+    pub workspace_command: Option<Vec<u8>>,
+    pub font: Option<Vec<u8>>,
+    pub separator_symbol: Option<Vec<u8>>,
     pub hide_workspace_buttons: bool,
-    pub workspace_min_width: ::core::ffi::c_int,
+    pub workspace_min_width: i32,
     pub strip_workspace_numbers: bool,
     pub strip_workspace_name: bool,
     pub hide_binding_mode_indicator: bool,
@@ -260,7 +260,7 @@ pub struct Barconfig {
     pub configs: BarConfigLinks,
 }
 impl Barconfig {
-    pub fn id(&self) -> &CStr {
+    pub fn id(&self) -> &[u8] {
         self.id
             .as_deref()
             .expect("finished bar configuration has an ID")
@@ -319,27 +319,27 @@ pub struct BarConfigLinks {
 }
 #[derive(Default)]
 pub struct bar_colors {
-    pub background: Option<std::ffi::CString>,
-    pub statusline: Option<std::ffi::CString>,
-    pub separator: Option<std::ffi::CString>,
-    pub focused_background: Option<std::ffi::CString>,
-    pub focused_statusline: Option<std::ffi::CString>,
-    pub focused_separator: Option<std::ffi::CString>,
-    pub focused_workspace_border: Option<std::ffi::CString>,
-    pub focused_workspace_bg: Option<std::ffi::CString>,
-    pub focused_workspace_text: Option<std::ffi::CString>,
-    pub active_workspace_border: Option<std::ffi::CString>,
-    pub active_workspace_bg: Option<std::ffi::CString>,
-    pub active_workspace_text: Option<std::ffi::CString>,
-    pub inactive_workspace_border: Option<std::ffi::CString>,
-    pub inactive_workspace_bg: Option<std::ffi::CString>,
-    pub inactive_workspace_text: Option<std::ffi::CString>,
-    pub urgent_workspace_border: Option<std::ffi::CString>,
-    pub urgent_workspace_bg: Option<std::ffi::CString>,
-    pub urgent_workspace_text: Option<std::ffi::CString>,
-    pub binding_mode_border: Option<std::ffi::CString>,
-    pub binding_mode_bg: Option<std::ffi::CString>,
-    pub binding_mode_text: Option<std::ffi::CString>,
+    pub background: Option<Vec<u8>>,
+    pub statusline: Option<Vec<u8>>,
+    pub separator: Option<Vec<u8>>,
+    pub focused_background: Option<Vec<u8>>,
+    pub focused_statusline: Option<Vec<u8>>,
+    pub focused_separator: Option<Vec<u8>>,
+    pub focused_workspace_border: Option<Vec<u8>>,
+    pub focused_workspace_bg: Option<Vec<u8>>,
+    pub focused_workspace_text: Option<Vec<u8>>,
+    pub active_workspace_border: Option<Vec<u8>>,
+    pub active_workspace_bg: Option<Vec<u8>>,
+    pub active_workspace_text: Option<Vec<u8>>,
+    pub inactive_workspace_border: Option<Vec<u8>>,
+    pub inactive_workspace_bg: Option<Vec<u8>>,
+    pub inactive_workspace_text: Option<Vec<u8>>,
+    pub urgent_workspace_border: Option<Vec<u8>>,
+    pub urgent_workspace_bg: Option<Vec<u8>>,
+    pub urgent_workspace_text: Option<Vec<u8>>,
+    pub binding_mode_border: Option<Vec<u8>>,
+    pub binding_mode_bg: Option<Vec<u8>>,
+    pub binding_mode_text: Option<Vec<u8>>,
 }
 
 #[derive(Copy, Clone)]
@@ -349,8 +349,8 @@ pub struct bar_bindings_head {
     pub tqh_last: *mut *mut Barbinding,
 }
 pub struct Barbinding {
-    pub input_code: ::core::ffi::c_int,
-    pub command: std::ffi::CString,
+    pub input_code: i32,
+    pub command: Vec<u8>,
     pub release: bool,
     pub bindings: BarBindingLinks,
 }
@@ -368,7 +368,7 @@ pub struct tray_outputs_head {
     pub tqh_last: *mut *mut tray_output_t,
 }
 pub struct tray_output_t {
-    pub output: std::ffi::CString,
+    pub output: Vec<u8>,
     pub tray_outputs: TrayOutputLinks,
 }
 #[derive(Copy, Clone)]
@@ -2146,11 +2146,11 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         let program = (*barconfig)
             .i3bar_command
             .as_deref()
-            .unwrap_or(c"exec i3bar");
+            .unwrap_or(b"exec i3bar");
         let command = bar_command(
-            program.to_bytes(),
+            program,
             (*barconfig).verbose,
-            (*barconfig).id().to_bytes(),
+            (*barconfig).id(),
             current_socketpath
                 .as_deref()
                 .map_or(&[][..], |path| path.as_os_str().as_bytes()),

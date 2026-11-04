@@ -868,10 +868,7 @@ pub unsafe fn load_configuration(
 
         while !current.is_null() {
             if (*current).font.is_none() {
-                (*current).font = config
-                    .font
-                    .pattern()
-                    .map(|bytes| std::ffi::CString::new(bytes).expect("font name has no NUL"));
+                (*current).font = config.font.pattern().map(<[u8]>::to_vec);
             }
             current = (*current).configs.tqe_next;
         }

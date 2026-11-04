@@ -269,16 +269,16 @@ unsafe fn collect() -> BTreeMap<String, String> {
     focused = std::ptr::null_mut();
     previous_workspace_name = std::ptr::null_mut();
     let mut bar = Barconfig {
-        id: Some(c"bar0".to_owned()),
+        id: Some(b"bar0".to_vec()),
         ..Default::default()
     };
     let bytes = snapshot_bar_config(&mut bar).to_bytes();
     result.insert("bar_sparse".into(), String::from_utf8(bytes).unwrap());
-    bar.socket_path = Some(c"socket".to_owned());
-    bar.status_command = Some(c"status --flag".to_owned());
-    bar.workspace_command = Some(c"workspaces".to_owned());
-    bar.font = Some(c"pango:monospace 8".to_owned());
-    bar.separator_symbol = Some(c"|".to_owned());
+    bar.socket_path = Some(std::path::PathBuf::from("socket"));
+    bar.status_command = Some(b"status --flag".to_vec());
+    bar.workspace_command = Some(b"workspaces".to_vec());
+    bar.font = Some(b"pango:monospace 8".to_vec());
+    bar.separator_symbol = Some(b"|".to_vec());
     bar.bar_height = 30;
     bar.padding = Rect {
         x: u32::MAX,
@@ -286,13 +286,13 @@ unsafe fn collect() -> BTreeMap<String, String> {
         width: 3,
         height: 4,
     };
-    bar.colors.background = Some(c"#112233".to_owned());
-    bar.colors.statusline = Some(c"".to_owned());
-    bar.colors.binding_mode_text = Some(c"#abcdef".to_owned());
-    bar.outputs = vec![c"PrImArY".to_owned(), c"nonprimary".to_owned()];
+    bar.colors.background = Some(b"#112233".to_vec());
+    bar.colors.statusline = Some(b"".to_vec());
+    bar.colors.binding_mode_text = Some(b"#abcdef".to_vec());
+    bar.outputs = vec![b"PrImArY".to_vec(), b"nonprimary".to_vec()];
     let mut binding = Barbinding {
         input_code: 1,
-        command: c"nop \"click\"".to_owned(),
+        command: b"nop \"click\"".to_vec(),
         release: true,
         bindings: crate::application::BarBindingLinks {
             tqe_next: std::ptr::null_mut(),
@@ -301,7 +301,7 @@ unsafe fn collect() -> BTreeMap<String, String> {
     };
     bar.bar_bindings.tqh_first = &mut binding;
     let mut tray = tray_output_t {
-        output: c"PRIMARY".to_owned(),
+        output: b"PRIMARY".to_vec(),
         tray_outputs: crate::application::TrayOutputLinks {
             tqe_next: std::ptr::null_mut(),
             tqe_prev: std::ptr::null_mut(),
@@ -310,7 +310,9 @@ unsafe fn collect() -> BTreeMap<String, String> {
     bar.tray_outputs.tqh_first = &mut tray;
     let bytes = snapshot_bar_config(&mut bar).to_bytes();
     result.insert("bar_full".into(), String::from_utf8(bytes).unwrap());
-    bar.socket_path = Some(invalid.to_owned());
+    bar.socket_path = Some(std::path::PathBuf::from(std::ffi::OsStr::from_bytes(
+        invalid.to_bytes(),
+    )));
     let bytes = snapshot_bar_config(&mut bar).to_bytes();
     result.insert(
         "bar_invalid_socket".into(),

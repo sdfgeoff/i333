@@ -5662,32 +5662,25 @@ pub unsafe fn cmd_rename_workspace(
 pub unsafe fn cmd_bar_mode(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    bar_mode: *const ::core::ffi::c_char,
-    bar_id: *const ::core::ffi::c_char,
+    bar_mode: &[u8],
+    bar_id: Option<&[u8]>,
 ) {
+    let bar_mode = bar_mode.split(|&byte| byte == 0).next().unwrap().to_vec();
+    let bar_id = bar_id.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap().to_vec());
     let mut mode: BarMode = BarMode::Dock;
     let mut toggle: bool = false;
-    if strcmp(bar_mode, c"dock".as_ptr()) == 0 as ::core::ffi::c_int {
+    if bar_mode.as_slice() == b"dock" {
         mode = BarMode::Dock;
-    } else if strcmp(bar_mode, c"hide".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if bar_mode.as_slice() == b"hide" {
         mode = BarMode::Hide;
-    } else if strcmp(bar_mode, c"invisible".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if bar_mode.as_slice() == b"invisible" {
         mode = BarMode::Invisible;
-    } else if strcmp(bar_mode, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if bar_mode.as_slice() == b"toggle" {
         toggle = true;
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = bar_mode;
-            let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
-                None,
-            )
-            .to_vec();
+            let log_value_0 = bar_mode.to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: Unknown bar mode \"{}\", this is a mismatch between code and parser spec.\n", log_value_0_text);
             } else {
@@ -5711,49 +5704,22 @@ pub unsafe fn cmd_bar_mode(
     }
     if barconfigs.tqh_first.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(&raw mut message, c"No bars found\n".as_ptr());
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            emit_command_reply(cmd_output, CommandReply::ErrorBytes(b"No bars found\n"));
         }
         return;
     }
     let mut current: *mut Barconfig = barconfigs.tqh_first;
 
     while !current.is_null() {
-        if !(!bar_id.is_null()
-            && strcmp((*current).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int)
-        {
+        if bar_id.as_deref().is_none_or(|id| (*current).id() == id) {
             if toggle {
                 mode = (*current).mode.toggled();
             }
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = (*current).id().as_ptr();
-                let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
-                    None,
-                )
-                .to_vec();
+                let log_value_0 = (*current).id().to_vec();
                 let log_value_1 = ((*current).mode as ::core::ffi::c_uint) as i32;
-                let log_pointer_3 = bar_mode;
-                let log_value_2 = i3_common::logging::string_bytes(
-                    if log_pointer_3.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                    },
-                    None,
-                )
-                .to_vec();
+                let log_value_2 = bar_mode.to_vec();
                 let log_value_3 = ((mode) as u32) as i32;
                 if let (Ok(log_value_0_text), Ok(log_value_2_text)) = (
                     std::str::from_utf8(&log_value_0),
@@ -5778,7 +5744,7 @@ pub unsafe fn cmd_bar_mode(
                 (*current).mode = mode;
                 ipc_send_barconfig_update_event(current);
             }
-            if !bar_id.is_null() {
+            if bar_id.is_some() {
                 if (*cmd_output).has_reply() {
                     emit_command_reply(cmd_output, CommandReply::Success(true));
                 }
@@ -5787,20 +5753,12 @@ pub unsafe fn cmd_bar_mode(
         }
         current = (*current).configs.tqe_next;
     }
-    if !bar_id.is_null() {
+    if let Some(bar_id) = bar_id.as_deref() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Changing bar mode of bar_id %s failed, bar_id not found.\n".as_ptr(),
-                bar_id,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
-            );
-            free(message_0 as *mut ::core::ffi::c_void);
+            let mut message = b"Changing bar mode of bar_id ".to_vec();
+            message.extend_from_slice(bar_id);
+            message.extend_from_slice(b" failed, bar_id not found.\n");
+            emit_command_reply(cmd_output, CommandReply::ErrorBytes(&message));
         }
     } else if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
@@ -5810,30 +5768,27 @@ pub unsafe fn cmd_bar_mode(
 pub unsafe fn cmd_bar_hidden_state(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    bar_hidden_state: *const ::core::ffi::c_char,
-    bar_id: *const ::core::ffi::c_char,
+    bar_hidden_state: &[u8],
+    bar_id: Option<&[u8]>,
 ) {
+    let bar_hidden_state = bar_hidden_state
+        .split(|&byte| byte == 0)
+        .next()
+        .unwrap()
+        .to_vec();
+    let bar_id = bar_id.map(|bytes| bytes.split(|&byte| byte == 0).next().unwrap().to_vec());
     let mut hidden_state: BarHiddenState = BarHiddenState::Show;
     let mut toggle: bool = false;
-    if strcmp(bar_hidden_state, c"hide".as_ptr()) == 0 as ::core::ffi::c_int {
+    if bar_hidden_state.as_slice() == b"hide" {
         hidden_state = BarHiddenState::Hide;
-    } else if strcmp(bar_hidden_state, c"show".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if bar_hidden_state.as_slice() == b"show" {
         hidden_state = BarHiddenState::Show;
-    } else if strcmp(bar_hidden_state, c"toggle".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if bar_hidden_state.as_slice() == b"toggle" {
         toggle = true;
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = bar_hidden_state;
-            let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
-                None,
-            )
-            .to_vec();
+            let log_value_0 = bar_hidden_state.to_vec();
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!("ERROR: Unknown bar state \"{}\", this is a mismatch between code and parser spec.\n", log_value_0_text);
             } else {
@@ -5856,49 +5811,22 @@ pub unsafe fn cmd_bar_hidden_state(
     }
     if barconfigs.tqh_first.is_null() {
         if (*cmd_output).has_reply() {
-            let mut message: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(&raw mut message, c"No bars found\n".as_ptr());
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
-            );
-            free(message as *mut ::core::ffi::c_void);
+            emit_command_reply(cmd_output, CommandReply::ErrorBytes(b"No bars found\n"));
         }
         return;
     }
     let mut current: *mut Barconfig = barconfigs.tqh_first;
 
     while !current.is_null() {
-        if !(!bar_id.is_null()
-            && strcmp((*current).id().as_ptr(), bar_id) != 0 as ::core::ffi::c_int)
-        {
+        if bar_id.as_deref().is_none_or(|id| (*current).id() == id) {
             if toggle {
                 hidden_state = (*current).hidden_state.toggled();
             }
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = (*current).id().as_ptr();
-                let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
-                    None,
-                )
-                .to_vec();
+                let log_value_0 = (*current).id().to_vec();
                 let log_value_1 = ((*current).hidden_state as ::core::ffi::c_uint) as i32;
-                let log_pointer_3 = bar_hidden_state;
-                let log_value_2 = i3_common::logging::string_bytes(
-                    if log_pointer_3.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                    },
-                    None,
-                )
-                .to_vec();
+                let log_value_2 = bar_hidden_state.to_vec();
                 let log_value_3 = ((hidden_state) as u32) as i32;
                 if let (Ok(log_value_0_text), Ok(log_value_2_text)) = (
                     std::str::from_utf8(&log_value_0),
@@ -5913,7 +5841,7 @@ pub unsafe fn cmd_bar_hidden_state(
                 (*current).hidden_state = hidden_state;
                 ipc_send_barconfig_update_event(current);
             }
-            if !bar_id.is_null() {
+            if bar_id.is_some() {
                 if (*cmd_output).has_reply() {
                     emit_command_reply(cmd_output, CommandReply::Success(true));
                 }
@@ -5922,20 +5850,12 @@ pub unsafe fn cmd_bar_hidden_state(
         }
         current = (*current).configs.tqe_next;
     }
-    if !bar_id.is_null() {
+    if let Some(bar_id) = bar_id.as_deref() {
         if (*cmd_output).has_reply() {
-            let mut message_0: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut message_0,
-                c"Changing bar hidden_state of bar_id %s failed, bar_id not found.\n".as_ptr(),
-                bar_id,
-            );
-            emit_command_reply(
-                cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
-            );
-            free(message_0 as *mut ::core::ffi::c_void);
+            let mut message = b"Changing bar hidden_state of bar_id ".to_vec();
+            message.extend_from_slice(bar_id);
+            message.extend_from_slice(b" failed, bar_id not found.\n");
+            emit_command_reply(cmd_output, CommandReply::ErrorBytes(&message));
         }
     } else if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
