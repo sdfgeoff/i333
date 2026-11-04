@@ -619,7 +619,7 @@ unsafe fn free_configuration() {
             __ASSERT_FUNCTION.as_ptr(),
         );
     };
-    switch_mode(c"default".as_ptr());
+    switch_mode(b"default");
     ungrab_all_keys();
     while !modes.slh_first.is_null() {
         crate::bindings::remove_first_mode();
@@ -711,11 +711,11 @@ pub unsafe fn load_configuration(
         free_configuration();
     }
     modes.slh_first = ::core::ptr::null_mut::<Mode>();
-    let default_mode = Box::into_raw(Box::new(Mode::new(c"default".to_owned(), false)));
+    let default_mode = Box::into_raw(Box::new(Mode::new(b"default".to_vec(), false)));
     (*default_mode).modes.sle_next = modes.slh_first;
     modes.slh_first = default_mode;
     bindings = (*default_mode).bindings_ptr();
-    current_binding_mode = (*default_mode).name.as_ptr();
+    current_binding_mode = Some((*default_mode).name.clone());
     config = empty_config();
     {
         let screen = crate::application::root_display_opt();

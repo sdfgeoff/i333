@@ -2308,9 +2308,9 @@ unsafe fn con_on_remove_child(con: *mut Con) {
                 ipc_marshal_workspace_event(c"empty".as_ptr(), con, ::core::ptr::null_mut::<Con>());
             tree_close_internal(con, KillWindow::DontKill, false);
             ipc_send_event(
-                c"workspace".as_ptr(),
+                b"workspace",
                 I3_IPC_EVENT_WORKSPACE as u32,
-                payload.as_ptr(),
+                payload.as_bytes(),
             );
         }
         return;

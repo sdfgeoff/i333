@@ -652,9 +652,9 @@ unsafe fn handle_screen_change() {
     randr_query_outputs();
     scratchpad_fix_resolution();
     ipc_send_event(
-        c"output".as_ptr(),
+        b"output",
         I3_IPC_EVENT_OUTPUT as u32,
-        c"{\"change\":\"unspecified\"}".as_ptr(),
+        b"{\"change\":\"unspecified\"}",
     );
 }
 unsafe fn handle_unmap_notify_event(event: &x::UnmapNotifyEvent, full_sequence: u32) {
@@ -1412,9 +1412,9 @@ unsafe fn handle_configure_notify(event: &x::ConfigureNotifyEvent) {
     }
     randr_query_outputs();
     ipc_send_event(
-        c"output".as_ptr(),
+        b"output",
         I3_IPC_EVENT_OUTPUT as u32,
-        c"{\"change\":\"unspecified\"}".as_ptr(),
+        b"{\"change\":\"unspecified\"}",
     );
 }
 unsafe fn handle_selection_clear(event: &x::SelectionClearEvent) {

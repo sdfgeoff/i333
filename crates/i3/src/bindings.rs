@@ -36,7 +36,7 @@ pub struct modes_head {
     pub slh_first: *mut Mode,
 }
 pub struct Mode {
-    pub name: std::ffi::CString,
+    pub name: Vec<u8>,
     pub pango_markup: bool,
     bindings: OwnedBindingsHead,
     pub modes: ModeLinks,
@@ -79,9 +79,9 @@ impl Drop for OwnedBindingsHead {
 }
 
 impl Mode {
-    pub fn new(name: std::ffi::CString, pango_markup: bool) -> Self {
+    pub fn new(name: Vec<u8>, pango_markup: bool) -> Self {
         Self {
-            name,
+            name: name.split(|byte| *byte == 0).next().unwrap().to_vec(),
             pango_markup,
             bindings: OwnedBindingsHead::new(),
             modes: ModeLinks {
@@ -134,20 +134,18 @@ static mut xkb_keymap: *mut xkb_keymap = std::ptr::null_mut::<xkb_keymap>();
 
 pub static mut command_error_nagbar_pid: libc::pid_t = -(1 as libc::pid_t);
 
-pub static mut DEFAULT_BINDING_MODE: *const ::core::ffi::c_char = c"default".as_ptr();
-unsafe fn mode_from_name(name: *const ::core::ffi::c_char, pango_markup: bool) -> *mut Mode {
+pub const DEFAULT_BINDING_MODE: &[u8] = b"default";
+unsafe fn mode_from_name(name: &[u8], pango_markup: bool) -> *mut Mode {
+    let name = name.split(|byte| *byte == 0).next().unwrap();
     let mut mode: *mut Mode = modes.slh_first;
 
     while !mode.is_null() {
-        if strcmp((*mode).name.as_ptr(), name) == 0 {
+        if (*mode).name == name {
             return mode;
         }
         mode = (*mode).modes.sle_next;
     }
-    mode = Box::into_raw(Box::new(Mode::new(
-        std::ffi::CStr::from_ptr(name).to_owned(),
-        pango_markup,
-    )));
+    mode = Box::into_raw(Box::new(Mode::new(name.to_vec(), pango_markup)));
     (*mode).modes.sle_next = modes.slh_first;
     modes.slh_first = mode;
     mode
@@ -169,8 +167,8 @@ pub unsafe fn remove_first_mode() {
         if bindings == (*mode).bindings_ptr() {
             bindings = std::ptr::null_mut();
         }
-        if current_binding_mode == (*mode).name.as_ptr() {
-            current_binding_mode = c"default".as_ptr();
+        if current_binding_mode.as_deref() == Some((*mode).name.as_slice()) {
+            current_binding_mode = None;
         }
         while !(*(*mode).bindings.as_ptr()).tqh_first.is_null() {
             let bind = (*(*mode).bindings.as_ptr()).tqh_first;
@@ -195,7 +193,7 @@ pub unsafe fn configure_binding(
     whole_window: *const ::core::ffi::c_char,
     exclude_titlebar: *const ::core::ffi::c_char,
     command: *const ::core::ffi::c_char,
-    modename: *const ::core::ffi::c_char,
+    modename: &[u8],
     pango_markup: bool,
 ) -> *mut Binding {
     let mut new_binding: *mut Binding =
@@ -1019,22 +1017,26 @@ pub unsafe fn translate_keysyms() {
     }
 }
 
-pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
-    let requested_mode = std::ffi::CStr::from_ptr(new_mode).to_owned();
-    let new_mode = requested_mode.as_ptr();
+// Preserve the historical mode event's raw insertion, including unescaped
+// quotes/invalid UTF-8. This is a wire-compatibility builder, not a C-text API.
+fn mode_event_payload(name: &[u8], pango_markup: bool) -> Vec<u8> {
+    let name = name.split(|byte| *byte == 0).next().unwrap();
+    let mut payload = b"{\"change\":\"".to_vec();
+    payload.extend_from_slice(name);
+    payload.extend_from_slice(if pango_markup {
+        b"\", \"pango_markup\":true}"
+    } else {
+        b"\", \"pango_markup\":false}"
+    });
+    payload
+}
+
+pub unsafe fn switch_mode(new_mode: &[u8]) {
+    let requested_mode = new_mode.split(|byte| *byte == 0).next().unwrap().to_vec();
+    let new_mode = requested_mode.as_slice();
     let mut mode: *mut Mode = ::core::ptr::null_mut::<Mode>();
     {
-        // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = new_mode;
-        let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
-            None,
-        )
-        .to_vec();
+        let log_value_0 = new_mode.to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/bindings.c:switch_mode:642 - Switching to mode {}\n",
@@ -1052,14 +1054,14 @@ pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
     };
     mode = modes.slh_first;
     while !mode.is_null() {
-        if strcmp((*mode).name.as_ptr(), new_mode) != 0 {
+        if (*mode).name != new_mode {
             mode = (*mode).modes.sle_next;
         } else {
             let mode_name = (*mode).name.clone();
             let pango_markup = (*mode).pango_markup;
             ungrab_all_keys();
             bindings = (*mode).bindings_ptr();
-            current_binding_mode = (*mode).name.as_ptr();
+            current_binding_mode = Some((*mode).name.clone());
             translate_keysyms();
             grab_all_keys();
             regrab_all_buttons();
@@ -1071,21 +1073,8 @@ pub unsafe fn switch_mode(new_mode: *const ::core::ffi::c_char) {
                 }
                 bind = (*bind).bindings.tqe_next;
             }
-            let mut event_msg: *mut ::core::ffi::c_char =
-                ::core::ptr::null_mut::<::core::ffi::c_char>();
-            sasprintf(
-                &raw mut event_msg,
-                c"{\"change\":\"%s\", \"pango_markup\":%s}".as_ptr(),
-                mode_name.as_ptr(),
-                if pango_markup {
-                    c"true".as_ptr()
-                } else {
-                    c"false".as_ptr()
-                },
-            );
-            ipc_send_event(c"mode".as_ptr(), I3_IPC_EVENT_MODE as u32, event_msg);
-            free(event_msg as *mut ::core::ffi::c_void);
-            event_msg = ::core::ptr::null_mut::<::core::ffi::c_char>();
+            let event_msg = mode_event_payload(&mode_name, pango_markup);
+            ipc_send_event(b"mode", I3_IPC_EVENT_MODE as u32, &event_msg);
             return;
         }
     }
@@ -1334,8 +1323,9 @@ pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResu
     let command_owner = Native::take(command);
     let bind_cp = binding_copy(bind);
     let binding_owner = BindingCopy(bind_cp);
-    let mut modename: *mut ::core::ffi::c_char = sstrdup(current_binding_mode);
-    let mode_owner = Native::take(modename);
+    let modename = current_binding_mode
+        .clone()
+        .unwrap_or_else(|| DEFAULT_BINDING_MODE.to_vec());
     let result: *mut CommandResult =
         parse_command(command, None, ::core::ptr::null_mut::<ipc_client>());
     drop(command_owner);
@@ -1374,8 +1364,7 @@ pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResu
         );
         free(pageraction as *mut ::core::ffi::c_void);
     }
-    ipc_send_binding_event(c"run".as_ptr(), bind_cp, modename);
-    drop(mode_owner);
+    ipc_send_binding_event(b"run", bind_cp, &modename);
     drop(binding_owner);
     result
 }
@@ -1785,6 +1774,37 @@ mod mode_ownership_tests {
     use super::*;
 
     #[test]
+    fn mode_event_bytes_match_native_format_for_unescaped_and_non_utf8_names() {
+        for name in [
+            b"".as_slice(),
+            b"normal",
+            b"quote\"\\\xff",
+            b"prefix\0ignored",
+        ] {
+            let prefix = name.split(|byte| *byte == 0).next().unwrap();
+            let native_name = std::ffi::CString::new(prefix).unwrap();
+            for markup in [false, true] {
+                let mut output = [0u8; 256];
+                let length = unsafe {
+                    libc::snprintf(
+                        output.as_mut_ptr().cast(),
+                        output.len(),
+                        c"{\"change\":\"%s\", \"pango_markup\":%s}".as_ptr(),
+                        native_name.as_ptr(),
+                        if markup {
+                            c"true".as_ptr()
+                        } else {
+                            c"false".as_ptr()
+                        },
+                    )
+                };
+                assert!(length >= 0);
+                assert_eq!(mode_event_payload(name, markup), output[..length as usize]);
+            }
+        }
+    }
+
+    #[test]
     fn reorder_and_remove_owned_modes_preserves_active_aliases_and_native_names() {
         if std::env::var_os("I333_MODE_OWNER_PROBE").is_none() {
             let output = std::process::Command::new(std::env::current_exe().unwrap())
@@ -1802,9 +1822,10 @@ mod mode_ownership_tests {
         }
         unsafe {
             assert!(modes.slh_first.is_null());
-            let name = std::ffi::CString::new(vec![0xff, b'm']).unwrap();
-            let mode = mode_from_name(name.as_ptr(), true);
-            assert_eq!(mode_from_name(name.as_ptr(), false), mode);
+            let name = vec![0xff, b'm'];
+            let mode = mode_from_name(&name, true);
+            assert_eq!(mode_from_name(&name, false), mode);
+            assert_eq!(mode_from_name(&[0xff, b'm', 0, b'x'], false), mode);
             assert!((*mode).pango_markup);
             let first = configure_binding(
                 c"bindcode".as_ptr(),
@@ -1815,7 +1836,7 @@ mod mode_ownership_tests {
                 std::ptr::null(),
                 std::ptr::null(),
                 c"nop first".as_ptr(),
-                name.as_ptr(),
+                &name,
                 true,
             );
             let second = configure_binding(
@@ -1827,11 +1848,11 @@ mod mode_ownership_tests {
                 std::ptr::null(),
                 std::ptr::null(),
                 c"nop second".as_ptr(),
-                name.as_ptr(),
+                &name,
                 true,
             );
             bindings = (*mode).bindings_ptr();
-            current_binding_mode = (*mode).name.as_ptr();
+            current_binding_mode = Some((*mode).name.clone());
             reorder_bindings();
             assert_eq!(bindings, (*mode).bindings_ptr());
             assert_eq!((*bindings).tqh_first, second);
@@ -1846,10 +1867,15 @@ mod mode_ownership_tests {
             remove_first_mode();
             assert!(modes.slh_first.is_null());
             assert!(bindings.is_null());
-            assert_eq!(std::ffi::CStr::from_ptr(current_binding_mode), c"default");
-            assert_eq!(retained_name.as_bytes(), &[0xff, b'm']);
-            let empty_mode = mode_from_name(c"".as_ptr(), false);
-            assert!((*empty_mode).name.as_bytes().is_empty());
+            assert_eq!(
+                current_binding_mode
+                    .as_deref()
+                    .unwrap_or(DEFAULT_BINDING_MODE),
+                b"default"
+            );
+            assert_eq!(retained_name, &[0xff, b'm']);
+            let empty_mode = mode_from_name(b"", false);
+            assert!((*empty_mode).name.is_empty());
             assert_eq!(
                 (*(*empty_mode).bindings.as_ptr()).tqh_last,
                 &raw mut (*(*empty_mode).bindings.as_ptr()).tqh_first

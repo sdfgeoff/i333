@@ -440,8 +440,7 @@ pub unsafe fn cfg_binding(
         false,
     );
 }
-static CURRENT_MODE: std::sync::Mutex<Option<(std::ffi::CString, bool)>> =
-    std::sync::Mutex::new(None);
+static CURRENT_MODE: std::sync::Mutex<Option<(Vec<u8>, bool)>> = std::sync::Mutex::new(None);
 
 pub unsafe fn cfg_mode_binding(
     current_match: *mut Match,
@@ -472,7 +471,7 @@ pub unsafe fn cfg_mode_binding(
         whole_window,
         exclude_titlebar,
         command,
-        mode.as_ptr(),
+        &mode,
         markup,
     );
 }
@@ -481,21 +480,12 @@ pub unsafe fn cfg_enter_mode(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
     pango_markup: *const ::core::ffi::c_char,
-    modename: *const ::core::ffi::c_char,
+    modename: &[u8],
 ) {
-    if strcmp(modename, DEFAULT_BINDING_MODE) == 0 as ::core::ffi::c_int {
+    let modename = modename.split(|byte| *byte == 0).next().unwrap().to_vec();
+    if modename == DEFAULT_BINDING_MODE {
         {
-            // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = DEFAULT_BINDING_MODE;
-            let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
-                None,
-            )
-            .to_vec();
+            let log_value_0 = DEFAULT_BINDING_MODE;
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::error!(
                     "ERROR: You cannot use the name {} for your mode\n",
@@ -514,19 +504,10 @@ pub unsafe fn cfg_enter_mode(
     let mut mode: *mut Mode = modes.slh_first;
 
     while !mode.is_null() {
-        if strcmp((*mode).name.as_ptr(), modename) == 0 as ::core::ffi::c_int {
+        if (*mode).name == modename {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
-                let log_pointer_1 = modename;
-                let log_value_0 = i3_common::logging::string_bytes(
-                    if log_pointer_1.is_null() {
-                        None
-                    } else {
-                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                    },
-                    None,
-                )
-                .to_vec();
+                let log_value_0 = modename.clone();
                 if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                     ::log::error!(
                         "ERROR: The binding mode with name \"{}\" is defined at least twice.\n",
@@ -545,16 +526,7 @@ pub unsafe fn cfg_enter_mode(
     }
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = modename;
-        let log_value_0 = i3_common::logging::string_bytes(
-            if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            },
-            None,
-        )
-        .to_vec();
+        let log_value_0 = modename.clone();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/config_directives.c:cfg_enter_mode:211 - \t now in mode {}\n",
@@ -570,7 +542,7 @@ pub unsafe fn cfg_enter_mode(
             i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
         }
     };
-    let mode = std::ffi::CStr::from_ptr(modename).to_owned();
+    let mode = modename;
     *CURRENT_MODE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some((mode, !pango_markup.is_null()));

@@ -599,8 +599,7 @@ pub static mut default_shmlog_size: ::core::ffi::c_int =
 
 pub static mut bindings: *mut bindings_head = std::ptr::null_mut::<bindings_head>();
 
-pub static mut current_binding_mode: *const ::core::ffi::c_char =
-    ::core::ptr::null::<::core::ffi::c_char>();
+pub static mut current_binding_mode: Option<Vec<u8>> = None;
 
 pub static mut autostarts: autostarts_head = autostarts_head {
     tqh_first: std::ptr::null_mut::<Autostart>(),

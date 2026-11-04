@@ -5526,11 +5526,14 @@ unsafe fn GENERATED_call(
         }
         148 => {
             (*result).next_state = ConfigParserState::Modebrace;
+            let modename = std::ffi::CStr::from_ptr(parser_get_string(stack, c"modename".as_ptr()))
+                .to_bytes()
+                .to_vec();
             cfg_enter_mode(
                 current_match,
                 result,
                 parser_get_string(stack, c"pango_markup".as_ptr()),
-                parser_get_string(stack, c"modename".as_ptr()),
+                &modename,
             );
         }
         149 => {

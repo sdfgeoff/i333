@@ -2402,7 +2402,7 @@ pub unsafe fn cmd_mode(
             );
         }
     };
-    switch_mode(mode);
+    switch_mode(&std::ffi::CStr::from_ptr(mode).to_bytes().to_vec());
     if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
     }
