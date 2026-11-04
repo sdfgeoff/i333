@@ -258,8 +258,8 @@ pub unsafe fn get_output_by_name(
     name: *const ::core::ffi::c_char,
     require_active: bool,
 ) -> *mut Output {
-    let get_primary: bool = strcasecmp(c"primary".as_ptr(), name) == 0 as ::core::ffi::c_int;
-    let get_non_primary: bool = strcasecmp(c"nonprimary".as_ptr(), name) == 0 as ::core::ffi::c_int;
+    let get_primary: bool = strcasecmp(c"primary".as_ptr(), name) == 0_i32;
+    let get_non_primary: bool = strcasecmp(c"nonprimary".as_ptr(), name) == 0_i32;
     let mut output: *mut Output = outputs.tqh_first;
 
     while !output.is_null() {
@@ -273,7 +273,7 @@ pub unsafe fn get_output_by_name(
             let mut output_name: *mut output_name = (*output).names_head.slh_first;
 
             while !output_name.is_null() {
-                if strcasecmp((*output_name).name, name) == 0 as ::core::ffi::c_int {
+                if strcasecmp((*output_name).name, name) == 0_i32 {
                     return output;
                 }
                 output_name = (*output_name).names.sle_next;
@@ -316,7 +316,7 @@ unsafe fn any_randr_output_active() -> bool {
     false
 }
 
-pub unsafe fn get_output_containing(x: ::core::ffi::c_uint, y: ::core::ffi::c_uint) -> *mut Output {
+pub unsafe fn get_output_containing(x: u32, y: u32) -> *mut Output {
     let mut output: *mut Output = outputs.tqh_first;
 
     while !output.is_null() {
@@ -577,7 +577,7 @@ pub unsafe fn output_init_con(output: *mut Output) {
     };
     current = nodes::first_ptr(croot);
     while !current.is_null() {
-        if strcmp((*current).name_ptr(), output_primary_name(output)) != 0 as ::core::ffi::c_int {
+        if strcmp((*current).name_ptr(), output_primary_name(output)) != 0_i32 {
             current = nodes::next_ptr(current);
         } else {
             con = current;
@@ -737,7 +737,7 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
         if !(((*workspace).type_0) != ContainerType::Workspace || con_is_internal(workspace)) {
             let name = (*workspace).name.clone().expect("workspace has a name");
             let workspace_out: *mut Con =
-                get_assigned_output(name.as_ptr(), (*workspace).num as ::core::ffi::c_long);
+                get_assigned_output(name.as_ptr(), (*workspace).num as i64);
             if !((*output).con != workspace_out) {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
@@ -804,8 +804,8 @@ pub unsafe fn init_ws_for_output(output: *mut Output) {
     focused = content;
     if !nodes::first_ptr(content).is_null() {
         let mut visible: *mut Con = ::core::ptr::null_mut::<Con>();
-        let mut child: *mut Con = -(1 as ::core::ffi::c_int) as *mut Con;
-        while child == -(1 as ::core::ffi::c_int) as *mut Con && {
+        let mut child: *mut Con = -1_i32 as *mut Con;
+        while child == -1_i32 as *mut Con && {
             child = ::core::ptr::null_mut::<Con>();
             true
         } {
@@ -929,7 +929,7 @@ unsafe fn output_change_mode(output: *mut Output) {
     if config.default_orientation == Orientation::None {
         workspace = nodes::first_ptr(content.cast_mut());
         while !workspace.is_null() {
-            if !(con_num_children(workspace) > 1 as ::core::ffi::c_int) {
+            if !(con_num_children(workspace) > 1_i32) {
                 (*workspace).layout = if (*output).rect.height > (*output).rect.width {
                     Layout::SplitV
                 } else {
@@ -949,7 +949,7 @@ unsafe fn output_change_mode(output: *mut Output) {
                         None,
                     )
                     .to_vec();
-                    let log_value_2 = ((*workspace).layout as ::core::ffi::c_uint) as i32;
+                    let log_value_2 = ((*workspace).layout as u32) as i32;
                     if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                         ::log::debug!("../src/randr.c:output_change_mode:568 - Setting workspace [{},{}]'s layout to {}.\n", log_value_0, log_value_1_text, log_value_2);
                     } else {
@@ -975,7 +975,7 @@ unsafe fn output_change_mode(output: *mut Output) {
                             None,
                         )
                         .to_vec();
-                        let log_value_2 = ((*child).layout as ::core::ffi::c_uint) as i32;
+                        let log_value_2 = ((*child).layout as u32) as i32;
                         if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
                             ::log::debug!("../src/randr.c:output_change_mode:573 - Setting child [{},{}]'s layout to {}.\n", log_value_0, log_value_1_text, log_value_2);
                         } else {
@@ -1054,7 +1054,7 @@ unsafe fn randr_query_outputs_15() -> bool {
             (*new).names_head.slh_first = ::core::ptr::null_mut::<output_name>();
             let randr_outputs = monitor.outputs.as_ptr();
             let randr_output_len = monitor.outputs.len() as i32;
-            let mut i: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+            let mut i: i32 = 0_i32;
             while i < randr_output_len {
                 let randr_output: u32 = *randr_outputs.offset(i as isize);
                 let cookie = connection.send_request(&randr::GetOutputInfo {
@@ -1068,7 +1068,7 @@ unsafe fn randr_query_outputs_15() -> bool {
                         continue;
                     };
                     let oname = oname_owned.as_ptr();
-                    if strcmp(name, oname) != 0 as ::core::ffi::c_int {
+                    if strcmp(name, oname) != 0_i32 {
                         let output_name: *mut output_name =
                             scalloc(1_usize, ::core::mem::size_of::<output_name>() as usize)
                                 as *mut output_name;
@@ -1122,14 +1122,14 @@ unsafe fn randr_query_outputs_15() -> bool {
                 None,
             )
             .to_vec();
-            let log_value_1 = (monitor.x as ::core::ffi::c_int);
-            let log_value_2 = (monitor.y as ::core::ffi::c_int);
-            let log_value_3 = (monitor.width as ::core::ffi::c_int);
-            let log_value_4 = (monitor.height as ::core::ffi::c_int);
+            let log_value_1 = (monitor.x as i32);
+            let log_value_2 = (monitor.y as i32);
+            let log_value_3 = (monitor.width as i32);
+            let log_value_4 = (monitor.height as i32);
             let log_value_5 = (monitor.width_in_millimeters) as i32;
             let log_value_6 = (monitor.height_in_millimeters) as i32;
-            let log_value_7 = (monitor.primary as ::core::ffi::c_int);
-            let log_value_8 = (monitor.automatic as ::core::ffi::c_int);
+            let log_value_7 = (monitor.primary as i32);
+            let log_value_8 = (monitor.automatic as i32);
             if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
                 ::log::debug!("../src/randr.c:randr_query_outputs_15:699 - name {}, x {}, y {}, width {} px, height {} px, width {} mm, height {} mm, primary {}, automatic {}\n", log_value_0_text, log_value_1, log_value_2, log_value_3, log_value_4, log_value_5, log_value_6, log_value_7, log_value_8);
             } else {
@@ -1570,14 +1570,10 @@ pub unsafe fn randr_query_outputs() {
                     && !((*other).rect.x != (*output).rect.x || (*other).rect.y != (*output).rect.y)
                 {
                     ::log::debug!("../src/randr.c:randr_query_outputs:965 - output {} has the same position, its mode = {} x {}\n", i3_common::logging::pointer(other), ((*other).rect.width) as i32, ((*other).rect.height) as i32);
-                    let width: u32 = min(
-                        (*other).rect.width as ::core::ffi::c_int,
-                        (*output).rect.width as ::core::ffi::c_int,
-                    ) as u32;
-                    let height: u32 = min(
-                        (*other).rect.height as ::core::ffi::c_int,
-                        (*output).rect.height as ::core::ffi::c_int,
-                    ) as u32;
+                    let width: u32 =
+                        min((*other).rect.width as i32, (*output).rect.width as i32) as u32;
+                    let height: u32 =
+                        min((*other).rect.height as i32, (*output).rect.height as i32) as u32;
                     let update_w: bool = update_if_necessary(&mut (*output).rect.width, width);
                     let update_h: bool = update_if_necessary(&mut (*output).rect.height, height);
                     if update_w || update_h {
@@ -1820,7 +1816,7 @@ unsafe fn fallback_to_root_output() {
     init_ws_for_output(root_output);
 }
 
-pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: bool) {
+pub unsafe fn randr_init(event_base: *mut i32, disable_randr15: bool) {
     root_output = create_root_output();
     (*root_output).outputs.tqe_next = ::core::ptr::null_mut::<xoutput>();
     (*root_output).outputs.tqe_prev = outputs.tqh_last;
@@ -1880,7 +1876,7 @@ pub unsafe fn randr_init(event_base: *mut ::core::ffi::c_int, disable_randr15: b
     });
     let _ = connection.flush();
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+pub const EXIT_FAILURE: i32 = 1_i32;
 unsafe extern "C" fn run_static_initializers() {
     outputs = outputs_head {
         tqh_first: ::core::ptr::null_mut::<xoutput>(),

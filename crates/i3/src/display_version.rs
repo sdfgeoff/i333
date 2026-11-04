@@ -354,7 +354,7 @@ fn write_failure(output: &mut impl Write, failure: Failure) {
     let _ = output.write_all(b"\n");
 }
 
-pub fn display_running_version() -> libc::c_int {
+pub fn display_running_version() -> i32 {
     if std::env::var_os("DISPLAY").is_none() {
         let _ = std::io::stderr().lock().write_all(b"\nYour DISPLAY environment variable is not set.\nAre you running i3 via SSH or on a virtual console?\nTry DISPLAY=:0 i3 --moreversion\n");
         return libc::EXIT_FAILURE;

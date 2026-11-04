@@ -42,22 +42,21 @@ pub const __ASSERT_FUNCTION: [::core::ffi::c_char; 69] = unsafe {
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
-pub const I3_IPC_EVENT_MASK: ::core::ffi::c_ulong =
-    (1 as ::core::ffi::c_ulong) << 31 as ::core::ffi::c_int;
-pub const I3_IPC_EVENT_OUTPUT: ::core::ffi::c_ulong = I3_IPC_EVENT_MASK | 1 as ::core::ffi::c_ulong;
-pub const _NET_WM_STATE_REMOVE: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const _NET_WM_STATE_ADD: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const _NET_WM_STATE_TOGGLE: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
+pub const I3_IPC_EVENT_MASK: u64 = 1_u64 << 31_i32;
+pub const I3_IPC_EVENT_OUTPUT: u64 = I3_IPC_EVENT_MASK | 1_u64;
+pub const _NET_WM_STATE_REMOVE: i32 = 0_i32;
+pub const _NET_WM_STATE_ADD: i32 = 1_i32;
+pub const _NET_WM_STATE_TOGGLE: i32 = 2_i32;
 
-pub const NET_WM_DESKTOP_ALL: ::core::ffi::c_uint = 0xffffffff as ::core::ffi::c_uint;
+pub const NET_WM_DESKTOP_ALL: u32 = 0xffffffff_u32;
 
-pub static mut randr_base: ::core::ffi::c_int = -(1 as ::core::ffi::c_int);
+pub static mut randr_base: i32 = -1_i32;
 
-pub static mut xkb_base: ::core::ffi::c_int = -(1 as ::core::ffi::c_int);
+pub static mut xkb_base: i32 = -1_i32;
 
-pub static mut xkb_current_group: ::core::ffi::c_int = 0;
+pub static mut xkb_current_group: i32 = 0;
 
-pub static mut shape_base: ::core::ffi::c_int = -(1 as ::core::ffi::c_int);
+pub static mut shape_base: i32 = -1_i32;
 struct IgnoredEvent {
     sequence: u32,
     response: i32,
@@ -106,7 +105,7 @@ unsafe fn check_crossing_screen_boundary(x: u32, y: u32) {
     if config.disable_focus_follows_mouse {
         return;
     }
-    output = get_output_containing(x as ::core::ffi::c_uint, y as ::core::ffi::c_uint);
+    output = get_output_containing(x, y);
     if output.is_null() {
         ::log::error!("ERROR: ERROR: No such screen\n");
         return;
@@ -147,15 +146,13 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
     let (event_mode, event_detail) = enter_selectors(event);
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     last_timestamp = event.time();
-    ::log::debug!("../src/handlers.c:handle_enter_notify:133 - enter_notify for {:08x}, mode = {}, detail {}, serial {}\n", { (event.event().resource_id()) }, { (event_mode as ::core::ffi::c_int) }, { (event_detail as ::core::ffi::c_int) }, { (event.sequence() as ::core::ffi::c_int) });
+    ::log::debug!("../src/handlers.c:handle_enter_notify:133 - enter_notify for {:08x}, mode = {}, detail {}, serial {}\n", { (event.event().resource_id()) }, { (event_mode as i32) }, { (event_detail as i32) }, { (event.sequence() as i32) });
     ::log::debug!(
         "../src/handlers.c:handle_enter_notify:134 - coordinates {}, {}\n",
-        { (event.event_x() as ::core::ffi::c_int) },
-        { (event.event_y() as ::core::ffi::c_int) }
+        { (event.event_x() as i32) },
+        { (event.event_y() as i32) }
     );
-    if event_mode as ::core::ffi::c_int
-        != (::xcb::x::NotifyMode::Normal as u32) as ::core::ffi::c_int
-    {
+    if event_mode as i32 != (::xcb::x::NotifyMode::Normal as u32) as i32 {
         ::log::debug!(
             "../src/handlers.c:handle_enter_notify:136 - This was not a normal notify, ignoring\n"
         );
@@ -179,8 +176,8 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
     if con.is_null() || ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
         ::log::debug!(
             "../src/handlers.c:handle_enter_notify:157 - Getting screen at {} x {}\n",
-            { (event.root_x() as ::core::ffi::c_int) },
-            { (event.root_y() as ::core::ffi::c_int) }
+            { (event.root_x() as i32) },
+            { (event.root_y() as i32) }
         );
         check_crossing_screen_boundary(event.root_x() as u32, event.root_y() as u32);
         return;
@@ -253,7 +250,7 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
 }
 unsafe fn handle_motion_notify(event: &x::MotionNotifyEvent) {
     last_timestamp = event.time();
-    if event.child().resource_id() as ::core::ffi::c_long != 0 {
+    if event.child().resource_id() as i64 != 0 {
         return;
     }
     let mut con: *mut Con = con_by_frame_id(event.event().resource_id());
@@ -329,13 +326,13 @@ unsafe fn handle_map_request(event: &x::MapRequestEvent, full_sequence: u32) {
     ::log::debug!(
         "../src/handlers.c:handle_map_request:286 - window = 0x{:08x}, serial is {}.\n",
         { (event.window().resource_id()) },
-        { (event.sequence() as ::core::ffi::c_int) }
+        { (event.sequence() as i32) }
     );
     add_ignore_event(
         ignore_event_sequence_t {
             value: full_sequence,
         },
-        -(1 as ::core::ffi::c_int),
+        -1_i32,
     );
     manage_window(
         event.window().resource_id(),
@@ -442,7 +439,7 @@ fn configure_window_values(event: &x::ConfigureRequestEvent) -> Vec<x::ConfigWin
 unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
     let mut fullscreen: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
-    ::log::debug!("../src/handlers.c:handle_configure_request:304 - window 0x{:08x} wants to be at {}x{} with {}x{}\n", { (event.window().resource_id()) }, { (event.x() as ::core::ffi::c_int) }, { (event.y() as ::core::ffi::c_int) }, { (event.width() as ::core::ffi::c_int) }, { (event.height() as ::core::ffi::c_int) });
+    ::log::debug!("../src/handlers.c:handle_configure_request:304 - window 0x{:08x} wants to be at {}x{} with {}x{}\n", { (event.window().resource_id()) }, { (event.x() as i32) }, { (event.y() as i32) }, { (event.width() as i32) }, { (event.height() as i32) });
     con = con_by_window_id(event.window().resource_id());
     if con.is_null() {
         ::log::debug!("../src/handlers.c:handle_configure_request:309 - Configure request for unmanaged window, can do that.\n");
@@ -469,9 +466,7 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
     }
     ::log::debug!("../src/handlers.c:handle_configure_request:336 - Configure request!\n");
     let workspace: *mut Con = con_get_workspace(con);
-    if !workspace.is_null()
-        && strcmp((*workspace).name_ptr(), c"__i3_scratch".as_ptr()) == 0 as ::core::ffi::c_int
-    {
+    if !workspace.is_null() && strcmp((*workspace).name_ptr(), c"__i3_scratch".as_ptr()) == 0_i32 {
         ::log::debug!("../src/handlers.c:handle_configure_request:340 - This is a scratchpad container, ignoring ConfigureRequest\n");
     } else {
         fullscreen = con_get_fullscreen_covering_ws(workspace);
@@ -479,43 +474,39 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
             let bsr: Rect = con_border_style_rect(con);
             let floatingcon: *mut Con = parent_ptr(con);
             let mut newrect: Rect = (*floatingcon).rect as Rect;
-            if configure_selectors(event).1 as ::core::ffi::c_int
-                & (::xcb::x::ConfigWindowMask::X.bits()) as ::core::ffi::c_int
+            if configure_selectors(event).1 as i32 & (::xcb::x::ConfigWindowMask::X.bits()) as i32
                 != 0
             {
-                newrect.x = (event.x() as u32)
-                    .wrapping_add((-(1 as ::core::ffi::c_int) as u32).wrapping_mul(bsr.x));
-                ::log::debug!("../src/handlers.c:handle_configure_request:354 - proposed x = {}, new x is {}\n", { (event.x() as ::core::ffi::c_int) }, (newrect.x) as i32);
+                newrect.x = (event.x() as u32).wrapping_add((-1_i32 as u32).wrapping_mul(bsr.x));
+                ::log::debug!("../src/handlers.c:handle_configure_request:354 - proposed x = {}, new x is {}\n", { (event.x() as i32) }, (newrect.x) as i32);
             }
-            if configure_selectors(event).1 as ::core::ffi::c_int
-                & (::xcb::x::ConfigWindowMask::Y.bits()) as ::core::ffi::c_int
+            if configure_selectors(event).1 as i32 & (::xcb::x::ConfigWindowMask::Y.bits()) as i32
                 != 0
             {
-                newrect.y = (event.y() as u32)
-                    .wrapping_add((-(1 as ::core::ffi::c_int) as u32).wrapping_mul(bsr.y));
-                ::log::debug!("../src/handlers.c:handle_configure_request:358 - proposed y = {}, new y is {}\n", { (event.y() as ::core::ffi::c_int) }, (newrect.y) as i32);
+                newrect.y = (event.y() as u32).wrapping_add((-1_i32 as u32).wrapping_mul(bsr.y));
+                ::log::debug!("../src/handlers.c:handle_configure_request:358 - proposed y = {}, new y is {}\n", { (event.y() as i32) }, (newrect.y) as i32);
             }
-            if configure_selectors(event).1 as ::core::ffi::c_int
-                & (::xcb::x::ConfigWindowMask::WIDTH.bits()) as ::core::ffi::c_int
+            if configure_selectors(event).1 as i32
+                & (::xcb::x::ConfigWindowMask::WIDTH.bits()) as i32
                 != 0
             {
-                newrect.width = (event.width() as u32)
-                    .wrapping_add((-(1 as ::core::ffi::c_int) as u32).wrapping_mul(bsr.width));
+                newrect.width =
+                    (event.width() as u32).wrapping_add((-1_i32 as u32).wrapping_mul(bsr.width));
                 newrect.width = newrect
                     .width
-                    .wrapping_add(((*con).border_width * 2 as ::core::ffi::c_int) as u32);
-                ::log::debug!("../src/handlers.c:handle_configure_request:364 - proposed width = {}, new width is {} (x11 border {})\n", { (event.width() as ::core::ffi::c_int) }, (newrect.width) as i32, ((*con).border_width) as i32);
+                    .wrapping_add(((*con).border_width * 2_i32) as u32);
+                ::log::debug!("../src/handlers.c:handle_configure_request:364 - proposed width = {}, new width is {} (x11 border {})\n", { (event.width() as i32) }, (newrect.width) as i32, ((*con).border_width) as i32);
             }
-            if configure_selectors(event).1 as ::core::ffi::c_int
-                & (::xcb::x::ConfigWindowMask::HEIGHT.bits()) as ::core::ffi::c_int
+            if configure_selectors(event).1 as i32
+                & (::xcb::x::ConfigWindowMask::HEIGHT.bits()) as i32
                 != 0
             {
-                newrect.height = (event.height() as u32)
-                    .wrapping_add((-(1 as ::core::ffi::c_int) as u32).wrapping_mul(bsr.height));
+                newrect.height =
+                    (event.height() as u32).wrapping_add((-1_i32 as u32).wrapping_mul(bsr.height));
                 newrect.height = newrect
                     .height
-                    .wrapping_add(((*con).border_width * 2 as ::core::ffi::c_int) as u32);
-                ::log::debug!("../src/handlers.c:handle_configure_request:370 - proposed height = {}, new height is {} (x11 border {})\n", { (event.height() as ::core::ffi::c_int) }, (newrect.height) as i32, ((*con).border_width) as i32);
+                    .wrapping_add(((*con).border_width * 2_i32) as u32);
+                ::log::debug!("../src/handlers.c:handle_configure_request:370 - proposed height = {}, new height is {} (x11 border {})\n", { (event.height() as i32) }, (newrect.height) as i32, ((*con).border_width) as i32);
             }
             ::log::debug!("../src/handlers.c:handle_configure_request:373 - Container is a floating leaf node, will do that.\n");
             floating_reposition(floatingcon, newrect);
@@ -523,40 +514,38 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
         }
         if !parent_ptr(con).is_null() && ((*parent_ptr(con)).type_0) == ContainerType::DockArea {
             ::log::debug!("../src/handlers.c:handle_configure_request:380 - Reconfiguring dock window (con = {}).\n", i3_common::logging::pointer(con));
-            if configure_selectors(event).1 as ::core::ffi::c_int
-                & (::xcb::x::ConfigWindowMask::HEIGHT.bits()) as ::core::ffi::c_int
+            if configure_selectors(event).1 as i32
+                & (::xcb::x::ConfigWindowMask::HEIGHT.bits()) as i32
                 != 0
             {
-                ::log::debug!("../src/handlers.c:handle_configure_request:382 - Dock client wants to change height to {}, we can do that.\n", { (event.height() as ::core::ffi::c_int) });
+                ::log::debug!("../src/handlers.c:handle_configure_request:382 - Dock client wants to change height to {}, we can do that.\n", { (event.height() as i32) });
                 (*con).geometry.height = event.height() as u32;
                 tree_render();
             }
-            if configure_selectors(event).1 as ::core::ffi::c_int
-                & (::xcb::x::ConfigWindowMask::X.bits()) as ::core::ffi::c_int
+            if configure_selectors(event).1 as i32 & (::xcb::x::ConfigWindowMask::X.bits()) as i32
                 != 0
-                || configure_selectors(event).1 as ::core::ffi::c_int
-                    & (::xcb::x::ConfigWindowMask::Y.bits()) as ::core::ffi::c_int
+                || configure_selectors(event).1 as i32
+                    & (::xcb::x::ConfigWindowMask::Y.bits()) as i32
                     != 0
             {
-                let x: i16 = (if configure_selectors(event).1 as ::core::ffi::c_int
-                    & (::xcb::x::ConfigWindowMask::X.bits()) as ::core::ffi::c_int
+                let x: i16 = (if configure_selectors(event).1 as i32
+                    & (::xcb::x::ConfigWindowMask::X.bits()) as i32
                     != 0
                 {
-                    event.x() as ::core::ffi::c_int
+                    event.x() as i32
                 } else {
-                    (*con).geometry.x as i16 as ::core::ffi::c_int
+                    (*con).geometry.x as i16 as i32
                 }) as i16;
-                let y: i16 = (if configure_selectors(event).1 as ::core::ffi::c_int
-                    & (::xcb::x::ConfigWindowMask::Y.bits()) as ::core::ffi::c_int
+                let y: i16 = (if configure_selectors(event).1 as i32
+                    & (::xcb::x::ConfigWindowMask::Y.bits()) as i32
                     != 0
                 {
-                    event.y() as ::core::ffi::c_int
+                    event.y() as i32
                 } else {
-                    (*con).geometry.y as i16 as ::core::ffi::c_int
+                    (*con).geometry.y as i16 as i32
                 }) as i16;
                 let current_output: *mut Con = con_get_output(con);
-                let target: *mut Output =
-                    get_output_containing(x as ::core::ffi::c_uint, y as ::core::ffi::c_uint);
+                let target: *mut Output = get_output_containing(x as u32, y as u32);
                 if !target.is_null() && current_output != (*target).con {
                     {
                         // Snapshot native bytes before the logger can dispatch a callback.
@@ -591,14 +580,12 @@ unsafe fn handle_configure_request(event: &x::ConfigureRequestEvent) {
                     ::log::debug!("../src/handlers.c:handle_configure_request:404 - Dock client will not be moved, we only support moving it to another output.\n");
                 }
             }
-        } else if configure_selectors(event).1 as ::core::ffi::c_int
-            & (::xcb::x::ConfigWindowMask::STACK_MODE.bits()) as ::core::ffi::c_int
+        } else if configure_selectors(event).1 as i32
+            & (::xcb::x::ConfigWindowMask::STACK_MODE.bits()) as i32
             != 0
         {
-            ::log::debug!("../src/handlers.c:handle_configure_request:411 - window 0x{:08x} wants to be stacked {}\n", { (event.window().resource_id()) }, { (configure_selectors(event).0 as ::core::ffi::c_int) });
-            if configure_selectors(event).0 as ::core::ffi::c_int
-                != (::xcb::x::StackMode::Above as u32) as ::core::ffi::c_int
-            {
+            ::log::debug!("../src/handlers.c:handle_configure_request:411 - window 0x{:08x} wants to be stacked {}\n", { (event.window().resource_id()) }, { (configure_selectors(event).0 as i32) });
+            if configure_selectors(event).0 as i32 != (::xcb::x::StackMode::Above as u32) as i32 {
                 ::log::debug!("../src/handlers.c:handle_configure_request:416 - stack_mode != XCB_STACK_MODE_ABOVE, ignoring ConfigureRequest\n");
             } else if !fullscreen.is_null() || !con_is_leaf(con) {
                 ::log::debug!("../src/handlers.c:handle_configure_request:421 - fullscreen or not a leaf, ignoring ConfigureRequest\n");
@@ -644,10 +631,10 @@ unsafe fn handle_screen_change() {
     };
     ::log::debug!(
         "../src/handlers.c:handle_screen_change:465 - root geometry reply: ({}, {}) {} x {}\n",
-        { (reply.x() as ::core::ffi::c_int) },
-        { (reply.y() as ::core::ffi::c_int) },
-        { (reply.width() as ::core::ffi::c_int) },
-        { (reply.height() as ::core::ffi::c_int) }
+        { (reply.x() as i32) },
+        { (reply.y() as i32) },
+        { (reply.width() as i32) },
+        { (reply.height() as i32) }
     );
     (*croot).rect.width = reply.width() as u32;
     (*croot).rect.height = reply.height() as u32;
@@ -671,7 +658,7 @@ unsafe fn handle_unmap_notify_event(event: &x::UnmapNotifyEvent, full_sequence: 
 // DestroyNotify shares this semantic operation without manufacturing an Unmap
 // packet, response opcode or appended native full_sequence field.
 unsafe fn handle_window_unmap(window: u32, event_window: u32, sequence: u16, full_sequence: u32) {
-    ::log::debug!("../src/handlers.c:handle_unmap_notify_event:483 - UnmapNotify for 0x{:08x} (received from 0x{:08x}), serial {}\n", { (window) }, { (event_window) }, { (sequence as ::core::ffi::c_int) });
+    ::log::debug!("../src/handlers.c:handle_unmap_notify_event:483 - UnmapNotify for 0x{:08x} (received from 0x{:08x}), serial {}\n", { (window) }, { (event_window) }, { (sequence as i32) });
     let cookie;
     let mut con: *mut Con = con_by_window_id(window);
     if con.is_null() {
@@ -680,17 +667,17 @@ unsafe fn handle_window_unmap(window: u32, event_window: u32, sequence: u16, ful
             ::log::info!("Not a managed window, ignoring UnmapNotify event\n");
             return;
         }
-        if (*con).ignore_unmap as ::core::ffi::c_int > 0 as ::core::ffi::c_int {
+        if (*con).ignore_unmap as i32 > 0_i32 {
             (*con).ignore_unmap = (*con).ignore_unmap.wrapping_sub(1);
         }
         cookie = connection().send_request(&x::GetInputFocus {});
-        ::log::debug!("../src/handlers.c:handle_unmap_notify_event:500 - ignore_unmap = {} for frame of container {}\n", { ((*con).ignore_unmap as ::core::ffi::c_int) }, i3_common::logging::pointer(con));
+        ::log::debug!("../src/handlers.c:handle_unmap_notify_event:500 - ignore_unmap = {} for frame of container {}\n", { ((*con).ignore_unmap as i32) }, i3_common::logging::pointer(con));
     } else {
         cookie = connection().send_request(&x::GetInputFocus {});
-        if (*con).ignore_unmap as ::core::ffi::c_int > 0 as ::core::ffi::c_int {
+        if (*con).ignore_unmap as i32 > 0_i32 {
             ::log::debug!(
                 "../src/handlers.c:handle_unmap_notify_event:508 - ignore_unmap = {}, dec\n",
-                { ((*con).ignore_unmap as ::core::ffi::c_int) }
+                { ((*con).ignore_unmap as i32) }
             );
             (*con).ignore_unmap = (*con).ignore_unmap.wrapping_sub(1);
         } else {
@@ -773,23 +760,19 @@ unsafe fn handle_expose_event(event: &x::ExposeEvent) {
     draw_util_copy_surface(
         &raw mut (*parent).frame_buffer,
         &raw mut (*parent).frame,
-        0 as ::core::ffi::c_int as ::core::ffi::c_double,
-        0 as ::core::ffi::c_int as ::core::ffi::c_double,
-        0 as ::core::ffi::c_int as ::core::ffi::c_double,
-        0 as ::core::ffi::c_int as ::core::ffi::c_double,
-        (*parent).rect.width as ::core::ffi::c_double,
-        (*parent).rect.height as ::core::ffi::c_double,
+        0_i32 as f64,
+        0_i32 as f64,
+        0_i32 as f64,
+        0_i32 as f64,
+        (*parent).rect.width as f64,
+        (*parent).rect.height as f64,
     );
     let _ = connection().flush();
 }
-pub const _NET_MOVERESIZE_WINDOW_X: ::core::ffi::c_int =
-    (1 as ::core::ffi::c_int) << 8 as ::core::ffi::c_int;
-pub const _NET_MOVERESIZE_WINDOW_Y: ::core::ffi::c_int =
-    (1 as ::core::ffi::c_int) << 9 as ::core::ffi::c_int;
-pub const _NET_MOVERESIZE_WINDOW_WIDTH: ::core::ffi::c_int =
-    (1 as ::core::ffi::c_int) << 10 as ::core::ffi::c_int;
-pub const _NET_MOVERESIZE_WINDOW_HEIGHT: ::core::ffi::c_int =
-    (1 as ::core::ffi::c_int) << 11 as ::core::ffi::c_int;
+pub const _NET_MOVERESIZE_WINDOW_X: i32 = 1_i32 << 8_i32;
+pub const _NET_MOVERESIZE_WINDOW_Y: i32 = 1_i32 << 9_i32;
+pub const _NET_MOVERESIZE_WINDOW_WIDTH: i32 = 1_i32 << 10_i32;
+pub const _NET_MOVERESIZE_WINDOW_HEIGHT: i32 = 1_i32 << 11_i32;
 unsafe fn handle_net_wm_state_change(mut con: *mut Con, change: u32, atom: u32) {
     if atom == 0_u32 {
         return;
@@ -889,7 +872,7 @@ unsafe fn handle_net_wm_state_change(mut con: *mut Con, change: u32, atom: u32) 
         } else if change == _NET_WM_STATE_TOGGLE as u32 {
             (*con).sticky = !(*con).sticky;
         }
-        ::log::debug!("../src/handlers.c:handle_net_wm_state_change:716 - New sticky status for con = {} is {}.\n", i3_common::logging::pointer(con), { ((*con).sticky as ::core::ffi::c_int) });
+        ::log::debug!("../src/handlers.c:handle_net_wm_state_change:716 - New sticky status for con = {} is {}.\n", i3_common::logging::pointer(con), { ((*con).sticky as i32) });
         ewmh_update_sticky((*(*con).window).id, (*con).sticky);
         output_push_sticky_windows(focused);
         ewmh_update_wm_desktop();
@@ -927,8 +910,8 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         (event.window().resource_id())
     });
     if event.r#type().resource_id() == A__NET_WM_STATE {
-        if event.format() as ::core::ffi::c_int != 32 as ::core::ffi::c_int {
-            ::log::debug!("../src/handlers.c:handle_client_message:742 - Unknown format {} in ClientMessage\n", { (event.format() as ::core::ffi::c_int) });
+        if event.format() as i32 != 32_i32 {
+            ::log::debug!("../src/handlers.c:handle_client_message:742 - Unknown format {} in ClientMessage\n", { (event.format() as i32) });
             return;
         }
         let con: *mut Con = con_by_window_id(event.window().resource_id());
@@ -946,7 +929,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
             i = i.wrapping_add(1);
         }
     } else if event.r#type().resource_id() == A__NET_ACTIVE_WINDOW {
-        if event.format() as ::core::ffi::c_int != 32 as ::core::ffi::c_int {
+        if event.format() as i32 != 32_i32 {
             return;
         }
         ::log::debug!("../src/handlers.c:handle_client_message:760 - _NET_ACTIVE_WINDOW: Window 0x{:08x} should be activated\n", { (event.window().resource_id()) });
@@ -1023,9 +1006,7 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
         });
         let _ = connection().flush();
     } else if event.r#type().resource_id() == A_WM_CHANGE_STATE {
-        if words[0_usize]
-            == (crate::domains::IcccmState::Iconic as u32) as ::core::ffi::c_int as u32
-        {
+        if words[0_usize] == (crate::domains::IcccmState::Iconic as u32) as i32 as u32 {
             ::log::debug!("../src/handlers.c:handle_client_message:852 - Client has requested iconic state, rejecting. (window = {:08x})\n", { (event.window().resource_id()) });
             connection().send_request(&x::ChangeProperty {
                 mode: x::PropMode::Replace,
@@ -1035,10 +1016,10 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 data: &[(crate::domains::IcccmState::Normal as u32), 0],
             });
         } else {
-            ::log::debug!("../src/handlers.c:handle_client_message:857 - Not handling WM_CHANGE_STATE request. (window = {:08x}, state = {})\n", { (event.window().resource_id()) }, (words[0 as ::core::ffi::c_int as usize]) as i32);
+            ::log::debug!("../src/handlers.c:handle_client_message:857 - Not handling WM_CHANGE_STATE request. (window = {:08x}, state = {})\n", { (event.window().resource_id()) }, (words[0_i32 as usize]) as i32);
         }
     } else if event.r#type().resource_id() == A__NET_CURRENT_DESKTOP {
-        ::log::debug!("../src/handlers.c:handle_client_message:865 - Request to change current desktop to index {}\n", (words[0 as ::core::ffi::c_int as usize]) as i32);
+        ::log::debug!("../src/handlers.c:handle_client_message:865 - Request to change current desktop to index {}\n", (words[0_i32 as usize]) as i32);
         let ws_0: *mut Con = ewmh_get_workspace_by_index(words[0_usize]);
         if ws_0.is_null() {
             ::log::error!(
@@ -1269,18 +1250,15 @@ unsafe fn handle_focus_in(event: &x::FocusInEvent) {
             );
         }
     };
-    if event_mode as ::core::ffi::c_int == (::xcb::x::NotifyMode::Grab as u32) as ::core::ffi::c_int
-        || event_mode as ::core::ffi::c_int
-            == (::xcb::x::NotifyMode::Ungrab as u32) as ::core::ffi::c_int
+    if event_mode as i32 == (::xcb::x::NotifyMode::Grab as u32) as i32
+        || event_mode as i32 == (::xcb::x::NotifyMode::Ungrab as u32) as i32
     {
         ::log::debug!(
             "../src/handlers.c:handle_focus_in:1081 - FocusIn event for grab/ungrab, ignoring\n"
         );
         return;
     }
-    if event_detail as ::core::ffi::c_int
-        == (::xcb::x::NotifyDetail::Pointer as u32) as ::core::ffi::c_int
-    {
+    if event_detail as i32 == (::xcb::x::NotifyDetail::Pointer as u32) as i32 {
         ::log::debug!("../src/handlers.c:handle_focus_in:1086 - notify detail is pointer, ignoring this event\n");
         return;
     }
@@ -1318,7 +1296,7 @@ unsafe fn handle_focus_out(event: &x::FocusInEvent) {
     } else {
         window_name = c"<unknown window>".as_ptr();
     }
-    match event_mode as ::core::ffi::c_int {
+    match event_mode as i32 {
         0 => {
             mode = c"Normal".as_ptr();
         }
@@ -1335,7 +1313,7 @@ unsafe fn handle_focus_out(event: &x::FocusInEvent) {
             mode = c"<unknown>".as_ptr();
         }
     }
-    match event_detail as ::core::ffi::c_int {
+    match event_detail as i32 {
         0 => {
             detail = c"Ancestor".as_ptr();
         }
@@ -1454,7 +1432,7 @@ unsafe fn handle_motif_hints_change(con: *mut Con, prop: Option<&x::GetPropertyR
         &raw mut motif_border_style,
     );
     if has_mwm_hints && motif_border_style != (*con).border_style {
-        ::log::debug!("../src/handlers.c:handle_motif_hints_change:1246 - Update border style of con {} to {}\n", i3_common::logging::pointer(con), (motif_border_style as ::core::ffi::c_uint) as i32);
+        ::log::debug!("../src/handlers.c:handle_motif_hints_change:1246 - Update border style of con {} to {}\n", i3_common::logging::pointer(con), (motif_border_style as u32) as i32);
         con_set_border_style(con, motif_border_style, (*con).current_border_width);
         x_push_changes(croot);
     }
@@ -1548,22 +1526,17 @@ pub unsafe fn property_handlers_init() {
         None,
     );
     property_handlers[0_usize].atom = A__NET_WM_NAME;
-    property_handlers[1_usize].atom =
-        (::xcb::x::ATOM_WM_HINTS.resource_id()) as ::core::ffi::c_int as u32;
-    property_handlers[2_usize].atom =
-        (::xcb::x::ATOM_WM_NAME.resource_id()) as ::core::ffi::c_int as u32;
-    property_handlers[3_usize].atom =
-        (::xcb::x::ATOM_WM_NORMAL_HINTS.resource_id()) as ::core::ffi::c_int as u32;
+    property_handlers[1_usize].atom = (::xcb::x::ATOM_WM_HINTS.resource_id()) as i32 as u32;
+    property_handlers[2_usize].atom = (::xcb::x::ATOM_WM_NAME.resource_id()) as i32 as u32;
+    property_handlers[3_usize].atom = (::xcb::x::ATOM_WM_NORMAL_HINTS.resource_id()) as i32 as u32;
     property_handlers[4_usize].atom = A_WM_CLIENT_LEADER;
-    property_handlers[5_usize].atom =
-        (::xcb::x::ATOM_WM_TRANSIENT_FOR.resource_id()) as ::core::ffi::c_int as u32;
+    property_handlers[5_usize].atom = (::xcb::x::ATOM_WM_TRANSIENT_FOR.resource_id()) as i32 as u32;
     property_handlers[6_usize].atom = A_WM_WINDOW_ROLE;
-    property_handlers[7_usize].atom =
-        (::xcb::x::ATOM_WM_CLASS.resource_id()) as ::core::ffi::c_int as u32;
+    property_handlers[7_usize].atom = (::xcb::x::ATOM_WM_CLASS.resource_id()) as i32 as u32;
     property_handlers[8_usize].atom = A__NET_WM_STRUT_PARTIAL;
     property_handlers[9_usize].atom = A__NET_WM_WINDOW_TYPE;
     property_handlers[10_usize].atom =
-        (::xcb::x::ATOM_WM_CLIENT_MACHINE.resource_id()) as ::core::ffi::c_int as u32;
+        (::xcb::x::ATOM_WM_CLIENT_MACHINE.resource_id()) as i32 as u32;
     property_handlers[11_usize].atom = A__MOTIF_WM_HINTS;
     property_handlers[12_usize].atom = A__NET_WM_ICON;
 }
@@ -1664,7 +1637,7 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             { (xkb_base) }
         );
     }
-    if randr_base > -(1 as ::core::ffi::c_int)
+    if randr_base > -1_i32
         && type_0
             == randr_base
                 + (<::xcb::randr::ScreenChangeNotifyEvent as ::xcb::BaseEvent>::NUMBER as i32)
@@ -1672,16 +1645,13 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
         handle_screen_change();
         return;
     }
-    if xkb_base > -(1 as ::core::ffi::c_int) && type_0 == xkb_base {
+    if xkb_base > -1_i32 && type_0 == xkb_base {
         ::log::debug!("../src/handlers.c:handle_event:1422 - xkb event, need to handle it.\n");
         match xcb_interop::events::xkb_event(owner, xkb_base as u8) {
             Some(xcb_interop::events::XkbEvent::NewKeyboard(state)) => {
-                ::log::debug!("../src/handlers.c:handle_event:1426 - xkb new keyboard notify, sequence {}, time {}\n", { (state.sequence as ::core::ffi::c_int) }, (state.time) as i32);
+                ::log::debug!("../src/handlers.c:handle_event:1426 - xkb new keyboard notify, sequence {}, time {}\n", { (state.sequence as i32) }, (state.time) as i32);
                 crate::application::rebuild_key_symbols();
-                if state.changed as ::core::ffi::c_int
-                    & (::xcb::xkb::NknDetail::KEYCODES.bits()) as ::core::ffi::c_int
-                    != 0
-                {
+                if state.changed as i32 & (::xcb::xkb::NknDetail::KEYCODES.bits()) as i32 != 0 {
                     load_keymap();
                 }
                 ungrab_all_keys();
@@ -1695,9 +1665,9 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
                     },
                     type_0,
                 ) {
-                    ::log::debug!("../src/handlers.c:handle_event:1437 - Ignoring map notify event for sequence {}.\n", { (state.sequence as ::core::ffi::c_int) });
+                    ::log::debug!("../src/handlers.c:handle_event:1437 - Ignoring map notify event for sequence {}.\n", { (state.sequence as i32) });
                 } else {
-                    ::log::debug!("../src/handlers.c:handle_event:1439 - xkb map notify, sequence {}, time {}\n", { (state.sequence as ::core::ffi::c_int) }, (state.time) as i32);
+                    ::log::debug!("../src/handlers.c:handle_event:1439 - xkb map notify, sequence {}, time {}\n", { (state.sequence as i32) }, (state.time) as i32);
                     add_ignore_event(
                         ignore_event_sequence_t {
                             value: (*event).full_sequence,
@@ -1714,12 +1684,12 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             Some(xcb_interop::events::XkbEvent::State(state)) => {
                 ::log::debug!(
                     "../src/handlers.c:handle_event:1449 - xkb state group = {}\n",
-                    { (state.group as ::core::ffi::c_int) }
+                    { (state.group as i32) }
                 );
-                if xkb_current_group == state.group as ::core::ffi::c_int {
+                if xkb_current_group == state.group as i32 {
                     return;
                 }
-                xkb_current_group = state.group as ::core::ffi::c_int;
+                xkb_current_group = state.group as i32;
                 ungrab_all_keys();
                 grab_all_keys();
             }
@@ -1733,7 +1703,7 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
         let Some(shape) = shape_change(owner, shape_base) else {
             return;
         };
-        ::log::debug!("../src/handlers.c:handle_event:1465 - shape_notify_event for window 0x{:08x}, shape_kind = {}, shaped = {}\n", { (shape.window) }, { (shape.kind as ::core::ffi::c_int) }, { (shape.shaped as ::core::ffi::c_int) });
+        ::log::debug!("../src/handlers.c:handle_event:1465 - shape_notify_event for window 0x{:08x}, shape_kind = {}, shaped = {}\n", { (shape.window) }, { (shape.kind as i32) }, { (shape.shaped as i32) });
         let con: *mut Con = con_by_window_id(shape.window);
         if con.is_null() {
             ::log::info!(
@@ -1742,10 +1712,8 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             );
             return;
         }
-        if shape.kind as ::core::ffi::c_int
-            == (::xcb::shape::Sk::Bounding as u32) as ::core::ffi::c_int
-            || shape.kind as ::core::ffi::c_int
-                == (::xcb::shape::Sk::Input as u32) as ::core::ffi::c_int
+        if shape.kind as i32 == (::xcb::shape::Sk::Bounding as u32) as i32
+            || shape.kind as i32 == (::xcb::shape::Sk::Input as u32) as i32
         {
             x_set_shape(
                 con,
@@ -1818,12 +1786,10 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
         _ => {}
     };
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const EXIT_SUCCESS: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const UINT_MAX: ::core::ffi::c_uint = (__INT_MAX__ as ::core::ffi::c_uint)
-    .wrapping_mul(2 as ::core::ffi::c_uint)
-    .wrapping_add(1 as ::core::ffi::c_uint);
-pub const __INT_MAX__: ::core::ffi::c_int = 2147483647 as ::core::ffi::c_int;
+pub const EXIT_FAILURE: i32 = 1_i32;
+pub const EXIT_SUCCESS: i32 = 0_i32;
+pub const UINT_MAX: u32 = (__INT_MAX__ as u32).wrapping_mul(2_u32).wrapping_add(1_u32);
+pub const __INT_MAX__: i32 = 2147483647_i32;
 unsafe extern "C" fn run_static_initializers() {
     property_handlers = [
         PropertyHandler {

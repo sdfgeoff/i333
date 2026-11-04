@@ -24,14 +24,14 @@ use std::io::{Read, Write};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::OpenOptionsExt;
 const DEFAULT_DIR_MODE: libc::mode_t = 0o755;
-const LONG_MIN: libc::c_long = libc::c_long::MIN;
-const LONG_MAX: libc::c_long = libc::c_long::MAX;
+const LONG_MIN: i64 = i64::MIN;
+const LONG_MAX: i64 = i64::MAX;
 
-pub fn min(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int {
+pub fn min(a: i32, b: i32) -> i32 {
     a.min(b)
 }
 
-pub fn max(a: ::core::ffi::c_int, b: ::core::ffi::c_int) -> ::core::ffi::c_int {
+pub fn max(a: i32, b: i32) -> i32 {
     a.max(b)
 }
 
@@ -338,7 +338,7 @@ unsafe fn store_restart_layout() -> Option<std::path::PathBuf> {
     if !payload.is_empty() {
         // The JSON payload is length-delimited, not a C string. Preserve the
         // old int precision cast and stop at the first NUL within that bound.
-        let precision = payload.len() as libc::c_int;
+        let precision = payload.len() as i32;
         let bytes = &payload[..usize::try_from(precision)
             .unwrap_or(payload.len())
             .min(payload.len())];
@@ -431,7 +431,7 @@ unsafe extern "C" fn nagbar_exited(
     let exitcode = libc::WEXITSTATUS(watcher.rstatus);
     if !libc::WIFEXITED(watcher.rstatus) {
         ::log::error!("ERROR: i3-nagbar ({}) did not exit normally. This is not an error if the config was reloaded while a nagbar was active.\n", { (watcher.pid) });
-    } else if exitcode != 0 as ::core::ffi::c_int {
+    } else if exitcode != 0_i32 {
         ::log::error!(
             "ERROR: i3-nagbar ({}) process exited with status {}\n",
             { (watcher.pid) },
@@ -446,24 +446,24 @@ unsafe extern "C" fn nagbar_exited(
     }
     let nagbar_pid: *mut libc::pid_t = watcher.data as *mut libc::pid_t;
     if *nagbar_pid == watcher.pid {
-        *nagbar_pid = -(1 as ::core::ffi::c_int) as libc::pid_t;
+        *nagbar_pid = -1_i32 as libc::pid_t;
     }
 }
 
 /// Event-thread only; nagbar_pid must outlive its registered child watcher.
 /// argv is a writable, terminated native argument array valid through exec.
 pub unsafe fn start_nagbar(nagbar_pid: *mut libc::pid_t, argv: *mut *mut ::core::ffi::c_char) {
-    if *nagbar_pid != -(1 as ::core::ffi::c_int) {
+    if *nagbar_pid != -1_i32 {
         ::log::debug!("../src/util.c:start_nagbar:368 - i3-nagbar already running (PID {}), not starting again.\n", { (*nagbar_pid) });
         return;
     }
     let prepared = PreparedUtility::new(c"i3-nagbar", CStr::from_ptr(*start_argv));
     *nagbar_pid = fork() as libc::pid_t;
-    if *nagbar_pid == -(1 as ::core::ffi::c_int) {
+    if *nagbar_pid == -1_i32 {
         warn(c"Could not fork()".as_ptr());
         return;
     }
-    if *nagbar_pid == 0 as ::core::ffi::c_int {
+    if *nagbar_pid == 0_i32 {
         exec_i3_utility(&prepared, argv);
     }
     ::log::debug!(
@@ -478,10 +478,10 @@ pub unsafe fn start_nagbar(nagbar_pid: *mut libc::pid_t, argv: *mut *mut ::core:
 
 /// The caller owns this child PID and any concurrent wait/reap coordination.
 pub unsafe fn kill_nagbar(nagbar_pid: libc::pid_t, wait_for_it: bool) {
-    if nagbar_pid == -(1 as ::core::ffi::c_int) {
+    if nagbar_pid == -1_i32 {
         return;
     }
-    if kill(nagbar_pid as libc::pid_t, libc::SIGTERM) == -(1 as ::core::ffi::c_int) {
+    if kill(nagbar_pid as libc::pid_t, libc::SIGTERM) == -1_i32 {
         warn(c"kill(configerror_nagbar) failed".as_ptr());
     }
     if !wait_for_it {
@@ -489,7 +489,7 @@ pub unsafe fn kill_nagbar(nagbar_pid: libc::pid_t, wait_for_it: bool) {
     }
     waitpid(
         nagbar_pid as libc::pid_t,
-        ::core::ptr::null_mut::<::core::ffi::c_int>(),
+        ::core::ptr::null_mut::<i32>(),
         0 as ::core::ffi::c_int,
     );
 }
@@ -498,12 +498,12 @@ pub unsafe fn kill_nagbar(nagbar_pid: libc::pid_t, wait_for_it: bool) {
 /// binding paths log the rejection and continue using its numeric projection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParseLongError {
-    pub value: libc::c_long,
+    pub value: i64,
 }
 
 /// Retain strtol's locale/base rules, empty-string acceptance, errno behavior
 /// and LONG_MIN/MAX rejection, without an output pointer or borrowed raw input.
-pub fn parse_long(input: &[u8], base: libc::c_int) -> Result<libc::c_long, ParseLongError> {
+pub fn parse_long(input: &[u8], base: i32) -> Result<i64, ParseLongError> {
     let input = CString::new(input.split(|byte| *byte == 0).next().unwrap()).unwrap();
     let mut end = std::ptr::null_mut();
     // SAFETY: input is a live native string; end receives a pointer into it (or
@@ -634,7 +634,7 @@ pub(crate) fn slurp(path: &CStr) -> Result<Vec<u8>, SlurpFailure> {
             let diagnostic_2_owner = path.to_owned();
             let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
             let diagnostic_3 = (*got) as isize;
-            let diagnostic_4 = (*want as libc::c_long) as libc::c_long;
+            let diagnostic_4 = (*want as i64);
             match (std::str::from_utf8(diagnostic_2_bytes),) {
                 (Ok(diagnostic_2_text),) => ::log::error!(
                     "ERROR: File \"{}\" could not be read entirely: got {}, want {}\n",
@@ -834,7 +834,7 @@ mod tests {
                 (c"  +42", true, 42),
                 (c"42 ", false, 42),
                 (c"-1", false, -1),
-                (c"9223372036854775807", false, libc::c_long::MAX),
+                (c"9223372036854775807", false, i64::MAX),
                 (c"0x10", true, 16),
             ] {
                 let parsed = parse_long(name.to_bytes(), 0);
@@ -864,8 +864,8 @@ mod tests {
     fn numeric_result_keeps_native_base_errno_and_rejected_output() {
         // libc supplies the independent conversion/errno oracle. The expected
         // acceptance records i3's additional trailing/extrema/negative policy.
-        let maximum = CString::new(libc::c_long::MAX.to_string()).unwrap();
-        let minimum = CString::new(libc::c_long::MIN.to_string()).unwrap();
+        let maximum = CString::new(i64::MAX.to_string()).unwrap();
+        let minimum = CString::new(i64::MIN.to_string()).unwrap();
         for (input, base, valid) in [
             (c"", 10, true),
             (c" ", 10, false),

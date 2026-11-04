@@ -621,7 +621,7 @@ pub unsafe fn x_move_win(src: *mut Con, dest: *mut Con) {
 }
 unsafe fn _x_con_kill(con: *mut Con) {
     let connection = connection();
-    if (*con).colormap as ::core::ffi::c_long != 0 {
+    if (*con).colormap as i64 != 0 {
         connection.send_request(&x::FreeColormap {
             cmap: x::Colormap::new((*con).colormap),
         });
@@ -824,7 +824,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
     if (*con).rect.height == 0_u32 {
         return;
     }
-    if leaf && (*con).frame_buffer.id as ::core::ffi::c_long == 0 {
+    if leaf && (*con).frame_buffer.id as i64 == 0 {
         return;
     }
     let color = if (*con).urgent {
@@ -994,7 +994,7 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
             ((*dest_surface).height) as i32,
             ((*dest_surface).id) as u32
         );
-        if !((*dest_surface).id as ::core::ffi::c_long == 0) {
+        if !((*dest_surface).id as i64 == 0) {
             if con == nodes::first_ptr(parent_ptr(con)) {
                 free((*parent_ptr(con)).deco_render_params as *mut ::core::ffi::c_void);
                 (*parent_ptr(con)).deco_render_params =
@@ -1509,14 +1509,14 @@ pub unsafe fn x_push_node(con: *mut Con) {
         (*con).rect.height as i32
     );
     let mut fake_notify: bool = false;
-    if is_pixmap_needed && (*con).frame_buffer.id as ::core::ffi::c_long == 0
+    if is_pixmap_needed && (*con).frame_buffer.id as i64 == 0
         || !rect_equals((*state).rect, rect) && rect.height > 0_u32
     {
         let has_rect_changed: bool = (*state).rect.x != rect.x
             || (*state).rect.y != rect.y
             || (*state).rect.width != rect.width
             || (*state).rect.height != rect.height;
-        if !is_pixmap_needed && (*con).frame_buffer.id as ::core::ffi::c_long != 0 {
+        if !is_pixmap_needed && (*con).frame_buffer.id as i64 != 0 {
             draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
             if !(*con).frame_buffer.release_pixmap() {
                 connection().send_request(&x::FreePixmap {
@@ -1525,10 +1525,8 @@ pub unsafe fn x_push_node(con: *mut Con) {
             }
             (*con).frame_buffer.id = 0_u32;
         }
-        if is_pixmap_needed
-            && (has_rect_changed || (*con).frame_buffer.id as ::core::ffi::c_long == 0)
-        {
-            if (*con).frame_buffer.id as ::core::ffi::c_long == 0 {
+        if is_pixmap_needed && (has_rect_changed || (*con).frame_buffer.id as i64 == 0) {
+            if (*con).frame_buffer.id as i64 == 0 {
                 (*con).frame_buffer.id = connection().generate_id::<x::Pixmap>().resource_id();
             } else {
                 draw_util_surface_free(conn, &raw mut (*con).frame_buffer);
@@ -1611,7 +1609,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             let _ = connection().flush();
         };
         xcb_set_window_rect(conn, (*con).frame.id, rect);
-        if (*con).frame_buffer.id as ::core::ffi::c_long != 0 {
+        if (*con).frame_buffer.id as i64 != 0 {
             draw_util_copy_surface(
                 &raw mut (*con).frame_buffer,
                 &raw mut (*con).frame,
@@ -1695,7 +1693,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
             | x::EventMask::ENTER_WINDOW.bits() as i32) as u32;
         set_event_mask((*con).frame.id, values_0);
-        if (*con).frame_buffer.id as ::core::ffi::c_long != 0 {
+        if (*con).frame_buffer.id as i64 != 0 {
             draw_util_copy_surface(
                 &raw mut (*con).frame_buffer,
                 &raw mut (*con).frame,
@@ -2077,7 +2075,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     },
                     last_focused,
                 );
-                if to_focus as ::core::ffi::c_long != 0
+                if to_focus as i64 != 0
                     && to_focus != last_focused
                     && !(*focused).window.is_null()
                     && is_con_attached(focused)
@@ -2089,7 +2087,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
             focused_id = last_focused;
         }
     }
-    if focused_id as ::core::ffi::c_long == 0 {
+    if focused_id as i64 == 0 {
         ::log::debug!(
             concat!(
                 "../src/x.c:x_push_changes:1451 - Still no window ",

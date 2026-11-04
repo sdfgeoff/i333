@@ -24,11 +24,11 @@ use xcb::{x, Xid, XidNew};
 pub type Output = xoutput;
 pub type i3Window = Window;
 
-pub const NET_WM_DESKTOP_NONE: ::core::ffi::c_uint = 0xfffffff0 as ::core::ffi::c_uint;
-pub const NET_WM_DESKTOP_ALL: ::core::ffi::c_uint = 0xffffffff as ::core::ffi::c_uint;
+pub const NET_WM_DESKTOP_NONE: u32 = 0xfffffff0_u32;
+pub const NET_WM_DESKTOP_ALL: u32 = 0xffffffff_u32;
 unsafe fn _match_depth(win: *mut i3Window, con: *mut Con) -> u32 {
     let mut old_frame: u32 = 0_u32;
-    if (*con).depth as ::core::ffi::c_int != (*win).depth as ::core::ffi::c_int {
+    if (*con).depth as i32 != (*win).depth as i32 {
         old_frame = (*con).frame.id;
         (*con).depth = (*win).depth;
         x_con_reframe(con);
@@ -150,11 +150,11 @@ pub unsafe fn restore_geometry() {
             (*con).window_rect.width = (*con)
                 .window_rect
                 .width
-                .wrapping_add((2 as ::core::ffi::c_int * (*con).border_width) as u32);
+                .wrapping_add((2_i32 * (*con).border_width) as u32);
             (*con).window_rect.height = (*con)
                 .window_rect
                 .height
-                .wrapping_add((2 as ::core::ffi::c_int * (*con).border_width) as u32);
+                .wrapping_add((2_i32 * (*con).border_width) as u32);
             xcb_set_window_rect(conn, (*(*con).window).id, (*con).window_rect as Rect);
             ::log::debug!(
                 "../src/manage.c:restore_geometry:88 - placing window {:08x} at {} {}\n",
@@ -181,7 +181,7 @@ pub unsafe fn restore_geometry() {
 pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_mapped: bool) {
     let mut values: [u32; 1] = [0; 1];
     let mut cwindow: *mut i3Window = ::core::ptr::null_mut::<i3Window>();
-    let mut buttons: *mut ::core::ffi::c_int = ::core::ptr::null_mut::<::core::ffi::c_int>();
+    let mut buttons: *mut i32 = ::core::ptr::null_mut::<i32>();
     let mut urgency_hint: bool = false;
     let mut motif_border_style: BorderStyle = BorderStyle::None;
     let mut has_mwm_hints: bool = false;
@@ -224,8 +224,8 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
         } else {
             let mut geom = crate::window::WindowGeometry::from(geom.as_ref().unwrap());
             values = [0; 1];
-            values[0_usize] = ((::xcb::x::EventMask::PROPERTY_CHANGE.bits()) as ::core::ffi::c_int
-                | (::xcb::x::EventMask::STRUCTURE_NOTIFY.bits()) as ::core::ffi::c_int)
+            values[0_usize] = ((::xcb::x::EventMask::PROPERTY_CHANGE.bits()) as i32
+                | (::xcb::x::EventMask::STRUCTURE_NOTIFY.bits()) as i32)
                 as u32;
             let event_mask_cookie = connection().send_request_checked(&x::ChangeWindowAttributes {
                 window: x::Window::new(window),
@@ -236,66 +236,41 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     "Could not change event mask, the window probably already disappeared.\n"
                 );
             } else {
-                let wm_type_cookie = property_cookie(
-                    window,
-                    A__NET_WM_WINDOW_TYPE,
-                    0 as ::core::ffi::c_int as u32,
-                    4294967295_u32,
-                );
+                let wm_type_cookie =
+                    property_cookie(window, A__NET_WM_WINDOW_TYPE, 0_i32 as u32, 4294967295_u32);
                 let strut_cookie = property_cookie(
                     window,
                     A__NET_WM_STRUT_PARTIAL,
-                    0 as ::core::ffi::c_int as u32,
+                    0_i32 as u32,
                     4294967295_u32,
                 );
-                let state_cookie = property_cookie(
-                    window,
-                    A__NET_WM_STATE,
-                    0 as ::core::ffi::c_int as u32,
-                    4294967295_u32,
-                );
-                let utf8_title_cookie = property_cookie(
-                    window,
-                    A__NET_WM_NAME,
-                    0 as ::core::ffi::c_int as u32,
-                    128_u32,
-                );
-                let leader_cookie = property_cookie(
-                    window,
-                    A_WM_CLIENT_LEADER,
-                    0 as ::core::ffi::c_int as u32,
-                    4294967295_u32,
-                );
+                let state_cookie =
+                    property_cookie(window, A__NET_WM_STATE, 0_i32 as u32, 4294967295_u32);
+                let utf8_title_cookie =
+                    property_cookie(window, A__NET_WM_NAME, 0_i32 as u32, 128_u32);
+                let leader_cookie =
+                    property_cookie(window, A_WM_CLIENT_LEADER, 0_i32 as u32, 4294967295_u32);
                 let transient_cookie = property_cookie(
                     window,
-                    (::xcb::x::ATOM_WM_TRANSIENT_FOR.resource_id()) as ::core::ffi::c_int as u32,
-                    0 as ::core::ffi::c_int as u32,
+                    (::xcb::x::ATOM_WM_TRANSIENT_FOR.resource_id()) as i32 as u32,
+                    0_i32 as u32,
                     4294967295_u32,
                 );
                 let title_cookie = property_cookie(
                     window,
-                    (::xcb::x::ATOM_WM_NAME.resource_id()) as ::core::ffi::c_int as u32,
-                    0 as ::core::ffi::c_int as u32,
+                    (::xcb::x::ATOM_WM_NAME.resource_id()) as i32 as u32,
+                    0_i32 as u32,
                     128_u32,
                 );
                 let class_cookie = property_cookie(
                     window,
-                    (::xcb::x::ATOM_WM_CLASS.resource_id()) as ::core::ffi::c_int as u32,
-                    0 as ::core::ffi::c_int as u32,
+                    (::xcb::x::ATOM_WM_CLASS.resource_id()) as i32 as u32,
+                    0_i32 as u32,
                     128_u32,
                 );
-                let role_cookie = property_cookie(
-                    window,
-                    A_WM_WINDOW_ROLE,
-                    0 as ::core::ffi::c_int as u32,
-                    128_u32,
-                );
-                let startup_id_cookie = property_cookie(
-                    window,
-                    A__NET_STARTUP_ID,
-                    0 as ::core::ffi::c_int as u32,
-                    512_u32,
-                );
+                let role_cookie = property_cookie(window, A_WM_WINDOW_ROLE, 0_i32 as u32, 128_u32);
+                let startup_id_cookie =
+                    property_cookie(window, A__NET_STARTUP_ID, 0_i32 as u32, 512_u32);
                 let wm_hints_cookie = property_cookie(
                     window,
                     x::ATOM_WM_HINTS.resource_id(),
@@ -311,33 +286,21 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 let motif_wm_hints_cookie = property_cookie(
                     window,
                     A__MOTIF_WM_HINTS,
-                    0 as ::core::ffi::c_int as u32,
+                    0_i32 as u32,
                     5_usize.wrapping_mul(::core::mem::size_of::<u64>() as usize) as u32,
                 );
-                let wm_user_time_cookie = property_cookie(
-                    window,
-                    A__NET_WM_USER_TIME,
-                    0 as ::core::ffi::c_int as u32,
-                    4294967295_u32,
-                );
-                let wm_desktop_cookie = property_cookie(
-                    window,
-                    A__NET_WM_DESKTOP,
-                    0 as ::core::ffi::c_int as u32,
-                    4294967295_u32,
-                );
+                let wm_user_time_cookie =
+                    property_cookie(window, A__NET_WM_USER_TIME, 0_i32 as u32, 4294967295_u32);
+                let wm_desktop_cookie =
+                    property_cookie(window, A__NET_WM_DESKTOP, 0_i32 as u32, 4294967295_u32);
                 let wm_machine_cookie = property_cookie(
                     window,
-                    (::xcb::x::ATOM_WM_CLIENT_MACHINE.resource_id()) as ::core::ffi::c_int as u32,
-                    0 as ::core::ffi::c_int as u32,
+                    (::xcb::x::ATOM_WM_CLIENT_MACHINE.resource_id()) as i32 as u32,
+                    0_i32 as u32,
                     4294967295_u32,
                 );
-                let wm_icon_cookie = property_cookie(
-                    window,
-                    A__NET_WM_ICON,
-                    0 as ::core::ffi::c_int as u32,
-                    4294967295_u32,
-                );
+                let wm_icon_cookie =
+                    property_cookie(window, A__NET_WM_ICON, 0_i32 as u32, 4294967295_u32);
                 cwindow = crate::con::arena::allocate_window(i3Window::default());
                 (*cwindow).id = window;
                 (*cwindow).depth =
@@ -345,7 +308,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 buttons = bindings_get_buttons_to_grab();
                 xcb_grab_buttons(conn, window, buttons);
                 free(buttons as *mut ::core::ffi::c_void);
-                buttons = ::core::ptr::null_mut::<::core::ffi::c_int>();
+                buttons = ::core::ptr::null_mut::<i32>();
                 window_update_class(cwindow, property_reply(class_cookie).as_ref());
                 window_update_name_legacy(cwindow, property_reply(title_cookie).as_ref());
                 window_update_name(cwindow, property_reply(utf8_title_cookie).as_ref());
@@ -417,10 +380,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 search_at = croot;
                 if xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_DOCK) {
                     ::log::info!("This window is of type dock\n");
-                    let output: *mut Output = get_output_containing(
-                        geom.x as ::core::ffi::c_uint,
-                        geom.y as ::core::ffi::c_uint,
-                    );
+                    let output: *mut Output = get_output_containing(geom.x as u32, geom.y as u32);
                     if !output.is_null() {
                         {
                             // Snapshot native bytes before the logger can dispatch a callback.
@@ -454,24 +414,23 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         (*cwindow).dock = WindowDock::Bottom;
                     } else {
                         ::log::debug!("../src/manage.c:manage_window:264 - Ignoring invalid reserved edges (_NET_WM_STRUT_PARTIAL), using position as fallback:\n");
-                        if (geom.y as ::core::ffi::c_int)
-                            < (*search_at).rect.height.wrapping_div(2_u32) as i16
-                                as ::core::ffi::c_int
+                        if (geom.y as i32)
+                            < (*search_at).rect.height.wrapping_div(2_u32) as i16 as i32
                         {
-                            ::log::debug!("../src/manage.c:manage_window:267 - geom->y = {} < rect.height / 2 = {}, it is a top dock client\n", { (geom.y as ::core::ffi::c_int) }, ((*search_at).rect.height.wrapping_div(2_u32)) as i32);
+                            ::log::debug!("../src/manage.c:manage_window:267 - geom->y = {} < rect.height / 2 = {}, it is a top dock client\n", { (geom.y as i32) }, ((*search_at).rect.height.wrapping_div(2_u32)) as i32);
                             (*cwindow).dock = WindowDock::Top;
                         } else {
-                            ::log::debug!("../src/manage.c:manage_window:271 - geom->y = {} >= rect.height / 2 = {}, it is a bottom dock client\n", { (geom.y as ::core::ffi::c_int) }, ((*search_at).rect.height.wrapping_div(2_u32)) as i32);
+                            ::log::debug!("../src/manage.c:manage_window:271 - geom->y = {} >= rect.height / 2 = {}, it is a bottom dock client\n", { (geom.y as i32) }, ((*search_at).rect.height.wrapping_div(2_u32)) as i32);
                             (*cwindow).dock = WindowDock::Bottom;
                         }
                     }
                 }
                 ::log::debug!(
                     "../src/manage.c:manage_window:277 - Initial geometry: ({}, {}, {}, {})\n",
-                    { (geom.x as ::core::ffi::c_int) },
-                    { (geom.y as ::core::ffi::c_int) },
-                    { (geom.width as ::core::ffi::c_int) },
-                    { (geom.height as ::core::ffi::c_int) }
+                    { (geom.x as i32) },
+                    { (geom.y as i32) },
+                    { (geom.width as i32) },
+                    { (geom.height as i32) }
                 );
                 (*cwindow).swallowed = false;
                 match_0 = ::core::ptr::null_mut::<Match>();
@@ -714,7 +673,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 }
                 (*nc).window = cwindow;
                 x_reinit(nc);
-                (*nc).border_width = geom.border_width as ::core::ffi::c_int;
+                (*nc).border_width = geom.border_width as i32;
                 name = ::core::ptr::null_mut::<::core::ffi::c_char>();
                 sasprintf(
                     &raw mut name,
@@ -795,8 +754,8 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     )
                     || xcb_reply_contains_atom(type_reply.as_ref(), A__NET_WM_WINDOW_TYPE_SPLASH)
                     || xcb_reply_contains_atom(state_reply.as_ref(), A__NET_WM_STATE_MODAL)
-                    || (*cwindow).max_width > 0 as ::core::ffi::c_int
-                        && (*cwindow).max_height > 0 as ::core::ffi::c_int
+                    || (*cwindow).max_width > 0_i32
+                        && (*cwindow).max_height > 0_i32
                         && (*cwindow).min_height == (*cwindow).max_height
                         && (*cwindow).min_width == (*cwindow).max_width
                 {
@@ -815,8 +774,8 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 }
                 drop(state_reply);
                 drop(type_reply);
-                if (*cwindow).transient_for as ::core::ffi::c_long != 0
-                    || (*cwindow).leader as ::core::ffi::c_long != 0
+                if (*cwindow).transient_for as i64 != 0
+                    || (*cwindow).leader as i64 != 0
                         && (*cwindow).leader != (*cwindow).id
                         && !con_by_window_id((*cwindow).leader).is_null()
                 {
@@ -862,7 +821,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     }
                 }
                 if has_mwm_hints {
-                    ::log::debug!("../src/manage.c:manage_window:536 - MOTIF_WM_HINTS specifies decorations (border_style = {})\n", (motif_border_style as ::core::ffi::c_uint) as i32);
+                    ::log::debug!("../src/manage.c:manage_window:536 - MOTIF_WM_HINTS specifies decorations (border_style = {})\n", (motif_border_style as u32) as i32);
                     if want_floating {
                         con_set_border_style(
                             nc,
@@ -873,7 +832,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         con_set_border_style(nc, motif_border_style, config.default_border_width);
                     }
                 }
-                if (*nc).current_border_width == -(1 as ::core::ffi::c_int) {
+                if (*nc).current_border_width == -1_i32 {
                     (*nc).current_border_width = if want_floating {
                         config.default_floating_border_width
                     } else {
@@ -894,11 +853,10 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                 if request_failed(rcookie) {
                     ::log::info!("Could not reparent the window, aborting\n");
                 } else {
-                    values[0_usize] = (((::xcb::x::EventMask::PROPERTY_CHANGE.bits())
-                        as ::core::ffi::c_int
-                        | (::xcb::x::EventMask::STRUCTURE_NOTIFY.bits()) as ::core::ffi::c_int
-                        | (::xcb::x::EventMask::FOCUS_CHANGE.bits()) as ::core::ffi::c_int)
-                        & !((::xcb::x::EventMask::ENTER_WINDOW.bits()) as ::core::ffi::c_int))
+                    values[0_usize] = (((::xcb::x::EventMask::PROPERTY_CHANGE.bits()) as i32
+                        | (::xcb::x::EventMask::STRUCTURE_NOTIFY.bits()) as i32
+                        | (::xcb::x::EventMask::FOCUS_CHANGE.bits()) as i32)
+                        & !((::xcb::x::EventMask::ENTER_WINDOW.bits()) as i32))
                         as u32;
                     connection().send_request(&x::ChangeWindowAttributes {
                         window: x::Window::new(window),
@@ -935,7 +893,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                     (*cwindow).managed_since = time(::core::ptr::null_mut::<libc::time_t>());
                     ipc_send_window_event(c"new".as_ptr(), nc);
                     if set_focus && !assignment_for(cwindow, AssignmentKind::NO_FOCUS).is_null() {
-                        if con_num_windows(ws) == 1 as ::core::ffi::c_int {
+                        if con_num_windows(ws) == 1_i32 {
                             ::log::debug!("../src/manage.c:manage_window:626 - This is the first window on this workspace, ignoring no_focus.\n");
                         } else {
                             ::log::debug!("../src/manage.c:manage_window:628 - no_focus was set for con = {}, not setting focus.\n", i3_common::logging::pointer(nc));
@@ -960,7 +918,7 @@ pub unsafe fn manage_window(window: u32, cookie: AttributesCookie, needs_to_be_m
                         con_activate(nc);
                     }
                     tree_render();
-                    if old_frame as ::core::ffi::c_long != 0 {
+                    if old_frame as i64 != 0 {
                         connection().send_request(&x::DestroyWindow {
                             window: x::Window::new(old_frame),
                         });
@@ -1005,7 +963,7 @@ pub unsafe fn remanage_window(con: *mut Con) -> *mut Con {
     x_reparent_child(nc, con);
     let moved_workpaces: bool = con_get_workspace(nc) != con_get_workspace(con);
     con_merge_into(con, nc);
-    if old_frame as ::core::ffi::c_long != 0 {
+    if old_frame as i64 != 0 {
         connection().send_request(&x::DestroyWindow {
             window: x::Window::new(old_frame),
         });

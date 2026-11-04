@@ -233,14 +233,14 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
     draw_util_clear_surface(&raw mut (*state).surface, background);
     restore_sync();
     let mut swallows: *mut Match = ::core::ptr::null_mut::<Match>();
-    let mut n: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+    let mut n: i32 = 0_i32;
     swallows = (*(*state).con).swallow_head.tqh_first;
     while !swallows.is_null() {
         if let Some(serialized) = swallow_text(swallows) {
             {
                 let diagnostic_5 = i3_common::logging::pointer((*state).con);
                 let diagnostic_6 = ((*state).window);
-                let diagnostic_7 = (n) as i32;
+                let diagnostic_7 = (n);
                 let diagnostic_8_owner = serialized.clone();
                 let diagnostic_8_bytes = diagnostic_8_owner.as_bytes();
                 match (std::str::from_utf8(diagnostic_8_bytes),) { (Ok(diagnostic_8_text),) => ::log::debug!(concat!("../src/restore_layout.c:update_placeholder_contents:166 - con {} (placeholder 0x{:08x}) line {}: {}\n"), diagnostic_5, diagnostic_6, diagnostic_7, diagnostic_8_text), _ => emit_parts(Level::Debug, &[b"../src/restore_layout.c:update_placeholder_contents:166 - con ", format!("{}", diagnostic_5).as_bytes(), b" (placeholder 0x", format!("{:08x}", diagnostic_6).as_bytes(), b") line ", format!("{}", diagnostic_7).as_bytes(), b": ", diagnostic_8_bytes, b"\n"]), }
@@ -281,7 +281,7 @@ unsafe fn update_placeholder_contents(state: *mut placeholder_state) {
 }
 unsafe fn open_placeholder_window(con: *mut Con) {
     if con_is_leaf(con)
-        && ((*con).window.is_null() || (*(*con).window).id as ::core::ffi::c_long == 0)
+        && ((*con).window.is_null() || (*(*con).window).id as i64 == 0)
         && !(*con).swallow_head.tqh_first.is_null()
         && ((*con).type_0) == ContainerType::Con
     {
@@ -341,8 +341,8 @@ unsafe fn open_placeholder_window(con: *mut Con) {
             &raw mut (*state).surface,
             placeholder,
             RESTORE_VISUAL.as_ref(),
-            (*state).rect.width as ::core::ffi::c_int,
-            (*state).rect.height as ::core::ffi::c_int,
+            (*state).rect.width as i32,
+            (*state).rect.height as i32,
         );
         update_placeholder_contents(state);
         (*state).state.tqe_next = ::core::ptr::null_mut::<placeholder_state>();
@@ -468,16 +468,16 @@ unsafe fn configure_notify(event: &x::ConfigureNotifyEvent) {
                     "height={} (con {})\n"
                 ),
                 { ((*state).window) },
-                { (event.width() as ::core::ffi::c_int) },
-                { (event.height() as ::core::ffi::c_int) },
+                { (event.width() as i32) },
+                { (event.height() as i32) },
                 i3_common::logging::pointer((*state).con)
             );
             (*state).rect.width = event.width() as u32;
             (*state).rect.height = event.height() as u32;
             draw_util_surface_set_size(
                 &raw mut (*state).surface,
-                (*state).rect.width as ::core::ffi::c_int,
-                (*state).rect.height as ::core::ffi::c_int,
+                (*state).rect.width as i32,
+                (*state).rect.height as i32,
             );
             update_placeholder_contents(state);
             return;
@@ -507,7 +507,7 @@ unsafe fn restore_handle_event(event: &xcb::Event) {
         }
     }
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+pub const EXIT_FAILURE: i32 = 1_i32;
 unsafe extern "C" fn run_static_initializers() {
     state_head = state_head {
         tqh_first: ::core::ptr::null_mut::<placeholder_state>(),

@@ -44,42 +44,42 @@ pub struct dialogs_head {
 }
 
 pub const SIG_DFL: libc::sighandler_t = libc::SIG_DFL;
-pub const SIGILL: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-pub const SIGABRT: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
-pub const SIGFPE: ::core::ffi::c_int = 8 as ::core::ffi::c_int;
-pub const SIGSEGV: ::core::ffi::c_int = 11 as ::core::ffi::c_int;
-pub const SIGQUIT: ::core::ffi::c_int = 3 as ::core::ffi::c_int;
-pub const SA_SIGINFO: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-pub const SA_NODEFER: ::core::ffi::c_int = 0x40000000 as ::core::ffi::c_int;
-pub const SA_RESETHAND: ::core::ffi::c_uint = 0x80000000 as ::core::ffi::c_uint;
-pub const STDIN_FILENO: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const STDOUT_FILENO: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const STDERR_FILENO: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
+pub const SIGILL: i32 = 4_i32;
+pub const SIGABRT: i32 = 6_i32;
+pub const SIGFPE: i32 = 8_i32;
+pub const SIGSEGV: i32 = 11_i32;
+pub const SIGQUIT: i32 = 3_i32;
+pub const SA_SIGINFO: i32 = 4_i32;
+pub const SA_NODEFER: i32 = 0x40000000_i32;
+pub const SA_RESETHAND: u32 = 0x80000000_u32;
+pub const STDIN_FILENO: i32 = 0_i32;
+pub const STDOUT_FILENO: i32 = 1_i32;
+pub const STDERR_FILENO: i32 = 2_i32;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 static mut dialogs: dialogs_head = dialogs_head {
     tqh_first: std::ptr::null_mut::<dialog_t>(),
     tqh_last: std::ptr::null_mut::<*mut dialog_t>(),
 };
-static mut raised_signal: ::core::ffi::c_int = 0;
+static mut raised_signal: i32 = 0;
 static mut CRASH_RENDERER: Option<i3_common::draw_util::NativeRenderingContext> = None;
-static mut backtrace_done: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+static mut backtrace_done: i32 = 0_i32;
 static mut message_intro: Option<I3String> = None;
 static mut message_intro2: Option<I3String> = None;
 static mut message_option_backtrace: Option<I3String> = None;
 static mut message_option_restart: Option<I3String> = None;
 static mut message_option_forget: Option<I3String> = None;
-static mut dialog_width: ::core::ffi::c_int = 0;
-static mut dialog_height: ::core::ffi::c_int = 0;
-static mut border_width: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
-static mut margin: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
+static mut dialog_width: i32 = 0;
+static mut dialog_height: i32 = 0;
+static mut border_width: i32 = 2_i32;
+static mut margin: i32 = 4_i32;
+unsafe fn sighandler_backtrace() -> i32 {
     let mut tmpdir: *mut ::core::ffi::c_char = getenv(c"TMPDIR".as_ptr());
     if tmpdir.is_null() {
         tmpdir = c"/tmp".as_ptr().cast_mut();
     }
     let pid_parent: libc::pid_t = getpid() as libc::pid_t;
     let mut filename: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut suffix: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+    let mut suffix: i32 = 0_i32;
     loop {
         free(filename as *mut ::core::ffi::c_void);
         filename = ::core::ptr::null_mut::<::core::ffi::c_char>();
@@ -152,7 +152,7 @@ unsafe fn sighandler_backtrace() -> ::core::ffi::c_int {
     close(null_fd);
     free(pid_s.cast());
     free(gdb_log_cmd.cast());
-    let mut status: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+    let mut status: i32 = 0_i32;
     waitpid(
         pid_gdb as libc::pid_t,
         &raw mut status,
@@ -202,17 +202,13 @@ unsafe fn prepare_crash_messages() {
 unsafe fn sighandler_setup() {
     border_width = logical_px(border_width);
     margin = logical_px(margin);
-    let num_lines: ::core::ffi::c_int = 5 as ::core::ffi::c_int;
-    let width_longest_message: ::core::ffi::c_int = predict_text_width(
+    let num_lines: i32 = 5_i32;
+    let width_longest_message: i32 = predict_text_width(
         &crate::config::config.font,
         (&*(&raw const message_intro2)).as_ref().unwrap(),
     );
-    dialog_width = width_longest_message
-        + 2 as ::core::ffi::c_int * border_width
-        + 2 as ::core::ffi::c_int * margin;
-    dialog_height = num_lines * config.font.height
-        + 2 as ::core::ffi::c_int * border_width
-        + 2 as ::core::ffi::c_int * margin;
+    dialog_width = width_longest_message + 2_i32 * border_width + 2_i32 * margin;
+    dialog_height = num_lines * config.font.height + 2_i32 * border_width + 2_i32 * margin;
 }
 fn dialog_geometry(output: Rect, width: i32, height: i32) -> Rect {
     Rect {
@@ -320,8 +316,8 @@ unsafe fn sighandler_create_dialogs() {
                 renderer,
                 &raw mut (*dialog).surface,
                 (*dialog).id as u32,
-                (*dialog).dims.width as ::core::ffi::c_int,
-                (*dialog).dims.height as ::core::ffi::c_int,
+                (*dialog).dims.width as i32,
+                (*dialog).dims.height as i32,
             );
             let keyboard = connection.send_request(&x::GrabKeyboard {
                 owner_events: false,
@@ -400,26 +396,20 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
     draw_util_rectangle(
         &raw mut (*dialog).surface,
         black,
-        border_width as ::core::ffi::c_double,
-        border_width as ::core::ffi::c_double,
+        border_width as f64,
+        border_width as f64,
         (*dialog)
             .dims
             .width
-            .wrapping_sub((2 as ::core::ffi::c_int * border_width) as u32)
-            as ::core::ffi::c_double,
+            .wrapping_sub((2_i32 * border_width) as u32) as f64,
         (*dialog)
             .dims
             .height
-            .wrapping_sub((2 as ::core::ffi::c_int * border_width) as u32)
-            as ::core::ffi::c_double,
+            .wrapping_sub((2_i32 * border_width) as u32) as f64,
     );
-    let mut y: ::core::ffi::c_int = border_width + margin;
-    let x: ::core::ffi::c_int = border_width + margin;
-    let max_width: ::core::ffi::c_int = (*dialog)
-        .dims
-        .width
-        .wrapping_sub((2 as ::core::ffi::c_int * x) as u32)
-        as ::core::ffi::c_int;
+    let mut y: i32 = border_width + margin;
+    let x: i32 = border_width + margin;
+    let max_width: i32 = (*dialog).dims.width.wrapping_sub((2_i32 * x) as u32) as i32;
     draw_util_text(
         &crate::config::config.font,
         (&*(&raw const message_intro)).as_ref().unwrap(),
@@ -479,7 +469,7 @@ unsafe fn sighandler_draw_dialog(dialog: *mut dialog_t) {
 }
 unsafe fn sighandler_handle_key_press(event: &xcb::x::KeyPressEvent) {
     let mut state = xcb_interop::events::key_press_state(event);
-    state = (state as ::core::ffi::c_uint & !xcb_numlock_mask) as u16;
+    state = (state as u32 & !xcb_numlock_mask) as u16;
     // The native press-lookup utility is exactly this keycode/column lookup.
     let sym = crate::application::key_symbol(event.detail(), i32::from(state));
     if crash_action(sym) == Some(CrashAction::Backtrace) {
@@ -514,7 +504,7 @@ unsafe extern "C" fn handle_signal(
     };
     let mut action: sigaction = ::core::mem::zeroed();
     action.sa_sigaction = libc::SIG_DFL;
-    action.sa_flags = 0 as ::core::ffi::c_int;
+    action.sa_flags = 0_i32;
     sigemptyset(&raw mut action.sa_mask);
     sigaction(sig, &raw mut action, ::core::ptr::null_mut::<sigaction>());
     raised_signal = sig;
@@ -545,40 +535,38 @@ pub unsafe fn setup_signal_handler() {
     prepare_crash_messages();
     let mut action: sigaction = ::core::mem::zeroed();
     action.sa_sigaction = handle_signal as *const () as usize;
-    action.sa_flags = (SA_NODEFER as ::core::ffi::c_uint
-        | SA_RESETHAND
-        | SA_SIGINFO as ::core::ffi::c_uint) as ::core::ffi::c_int;
+    action.sa_flags = (SA_NODEFER as u32 | SA_RESETHAND | SA_SIGINFO as u32) as i32;
     sigemptyset(&raw mut action.sa_mask);
     if sigaction(
         SIGQUIT,
         &raw mut action,
         ::core::ptr::null_mut::<sigaction>(),
-    ) == -(1 as ::core::ffi::c_int)
+    ) == -1_i32
         || sigaction(
             SIGILL,
             &raw mut action,
             ::core::ptr::null_mut::<sigaction>(),
-        ) == -(1 as ::core::ffi::c_int)
+        ) == -1_i32
         || sigaction(
             SIGABRT,
             &raw mut action,
             ::core::ptr::null_mut::<sigaction>(),
-        ) == -(1 as ::core::ffi::c_int)
+        ) == -1_i32
         || sigaction(
             SIGFPE,
             &raw mut action,
             ::core::ptr::null_mut::<sigaction>(),
-        ) == -(1 as ::core::ffi::c_int)
+        ) == -1_i32
         || sigaction(
             SIGSEGV,
             &raw mut action,
             ::core::ptr::null_mut::<sigaction>(),
-        ) == -(1 as ::core::ffi::c_int)
+        ) == -1_i32
     {
         ::log::error!("ERROR: Could not setup signal handler.\n");
     }
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+pub const EXIT_FAILURE: i32 = 1_i32;
 unsafe extern "C" fn run_static_initializers() {
     dialogs = dialogs_head {
         tqh_first: ::core::ptr::null_mut::<dialog_t>(),

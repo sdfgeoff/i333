@@ -127,8 +127,8 @@ struct Resolve {
     pub xkb_state_numlock_no_shift: *mut xkb_state,
 }
 
-pub const I3_IPC_EVENT_MASK: ::core::ffi::c_ulong = (1 as ::core::ffi::c_ulong) << 31;
-pub const I3_IPC_EVENT_MODE: ::core::ffi::c_ulong = I3_IPC_EVENT_MASK | 2 as ::core::ffi::c_ulong;
+pub const I3_IPC_EVENT_MASK: u64 = 1_u64 << 31;
+pub const I3_IPC_EVENT_MODE: u64 = I3_IPC_EVENT_MASK | 2_u64;
 
 static mut xkb_context: *mut xkb_context = std::ptr::null_mut::<xkb_context>();
 static mut xkb_keymap: *mut xkb_keymap = std::ptr::null_mut::<xkb_keymap>();
@@ -1450,7 +1450,7 @@ pub unsafe fn load_keymap() -> bool {
     true
 }
 
-pub unsafe fn bindings_get_buttons_to_grab() -> *mut libc::c_int {
+pub unsafe fn bindings_get_buttons_to_grab() -> *mut i32 {
     let mut buttons = vec![1, 2, 3];
     let mut bind = (*bindings).tqh_first;
     while !bind.is_null() {
@@ -1584,11 +1584,11 @@ fn release_action(release: BindingRelease, is_release: bool) -> ReleaseAction {
         ReleaseAction::Run
     }
 }
-fn append_button(buttons: &mut Vec<i32>, button: libc::c_long) {
+fn append_button(buttons: &mut Vec<i32>, button: i64) {
     if buttons.len() < 24
         && !buttons
             .iter()
-            .any(|&existing| libc::c_long::from(existing) == button)
+            .any(|&existing| i64::from(existing) == button)
     {
         buttons.push(button as i32);
     }

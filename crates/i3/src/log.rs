@@ -236,8 +236,8 @@ static mut verbose: bool = false;
 static mut errorfile: *mut FILE = std::ptr::null_mut();
 pub static mut errorfilename: Option<std::path::PathBuf> = None;
 pub static mut shmlogname: *mut libc::c_char = c"".as_ptr().cast_mut();
-pub static mut shmlog_size: libc::c_int = 0;
-static mut physical_mem_bytes: libc::c_longlong = 0;
+pub static mut shmlog_size: i32 = 0;
+static mut physical_mem_bytes: i64 = 0;
 pub static mut current_log_stream_socket_path: Option<std::path::PathBuf> = None;
 unsafe fn logbuffer_is_closed() -> bool {
     unsafe { (*(&raw const LOG_BUFFER)).is_none() }
@@ -270,14 +270,13 @@ pub unsafe fn init_logging() {
             fprintf(stderr, c"Could not initialize errorlog\n".as_ptr());
         }
     }
-    if physical_mem_bytes == 0 as ::core::ffi::c_longlong {
-        physical_mem_bytes = sysconf(libc::_SC_PHYS_PAGES as ::core::ffi::c_int)
-            as ::core::ffi::c_longlong
-            * sysconf(libc::_SC_PAGESIZE as ::core::ffi::c_int) as ::core::ffi::c_longlong;
+    if physical_mem_bytes == 0_i64 {
+        physical_mem_bytes =
+            sysconf(libc::_SC_PHYS_PAGES) as i64 * sysconf(libc::_SC_PAGESIZE) as i64;
     }
-    if shmlog_size > 0 as ::core::ffi::c_int && logbuffer_is_closed() {
+    if shmlog_size > 0_i32 && logbuffer_is_closed() {
         open_logbuffer();
-    } else if shmlog_size <= 0 as ::core::ffi::c_int && !logbuffer_is_closed() {
+    } else if shmlog_size <= 0_i32 && !logbuffer_is_closed() {
         close_logbuffer();
     }
     atexit(purge_zerobyte_logfile);
@@ -286,7 +285,7 @@ pub unsafe fn init_logging() {
 /// Event-thread only; replaces any previous owned mapping and compatibility name.
 pub unsafe fn open_logbuffer() {
     let size = if physical_mem_bytes as f64 * 0.01 < shmlog_size as f64 {
-        (physical_mem_bytes as f64 * 0.01) as libc::c_int
+        (physical_mem_bytes as f64 * 0.01) as i32
     } else {
         shmlog_size
     };

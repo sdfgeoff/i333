@@ -457,7 +457,7 @@ pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
             }
         }
     }
-    if event.child().resource_id() as ::core::ffi::c_long != 0 {
+    if event.child().resource_id() as i64 != 0 {
         ::log::debug!("../src/click.c:handle_button_press:443 - event->child not XCB_NONE, so this is an event which originated from a click into the application, but the application did not handle it.\n");
         route_click(con, event, ClickDestination::Inside);
         return;

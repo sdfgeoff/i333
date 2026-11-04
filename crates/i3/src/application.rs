@@ -385,7 +385,7 @@ pub struct barconfig_head {
 // Rust-owned IPC storage. Only ipc.rs constructs/destroys these Box allocations;
 // other modules carry opaque pointers. Stable watcher/list addresses stay native.
 pub struct ipc_client {
-    pub fd: libc::c_int,
+    pub fd: i32,
     pub generation: u64,
     pub fd_owner: Option<std::os::unix::net::UnixStream>,
     pub events: Vec<std::ffi::CString>,
@@ -412,38 +412,38 @@ pub struct outputs_head {
 
 pub const I3_VERSION: &[u8] = concat!(env!("I3_VERSION"), "\0").as_bytes();
 
-pub const SIGILL: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-pub const SIGABRT: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
-pub const SIGFPE: ::core::ffi::c_int = 8 as ::core::ffi::c_int;
-pub const SIGSEGV: ::core::ffi::c_int = 11 as ::core::ffi::c_int;
-pub const SIGQUIT: ::core::ffi::c_int = 3 as ::core::ffi::c_int;
-pub const SIGPIPE: ::core::ffi::c_int = 13 as ::core::ffi::c_int;
-pub const SIGCHLD: ::core::ffi::c_int = 17 as ::core::ffi::c_int;
-pub const SA_SIGINFO: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-pub const SA_NODEFER: ::core::ffi::c_int = 0x40000000 as ::core::ffi::c_int;
-pub const SA_RESETHAND: ::core::ffi::c_uint = 0x80000000 as ::core::ffi::c_uint;
+pub const SIGILL: i32 = 4_i32;
+pub const SIGABRT: i32 = 6_i32;
+pub const SIGFPE: i32 = 8_i32;
+pub const SIGSEGV: i32 = 11_i32;
+pub const SIGQUIT: i32 = 3_i32;
+pub const SIGPIPE: i32 = 13_i32;
+pub const SIGCHLD: i32 = 17_i32;
+pub const SA_SIGINFO: i32 = 4_i32;
+pub const SA_NODEFER: i32 = 0x40000000_i32;
+pub const SA_RESETHAND: u32 = 0x80000000_u32;
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
 
-pub const RLIM_INFINITY: ::core::ffi::c_ulonglong = 0xffffffffffffffff as ::core::ffi::c_ulonglong;
-pub const I3_IPC_MESSAGE_TYPE_RUN_COMMAND: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_COMMAND: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+pub const RLIM_INFINITY: u64 = 0xffffffffffffffff_u64;
+pub const I3_IPC_MESSAGE_TYPE_RUN_COMMAND: i32 = 0_i32;
+pub const I3_IPC_REPLY_TYPE_COMMAND: i32 = 0_i32;
 
-pub const O_RDONLY: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const F_GETFD: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const F_SETFD: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
-pub const FD_CLOEXEC: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const __LC_ALL: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
-pub const LC_ALL: ::core::ffi::c_int = __LC_ALL;
-pub const PF_LOCAL: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const AF_LOCAL: ::core::ffi::c_int = PF_LOCAL;
-pub const SD_LISTEN_FDS_START: ::core::ffi::c_int = 3 as ::core::ffi::c_int;
+pub const O_RDONLY: i32 = 0_i32;
+pub const F_GETFD: i32 = 1_i32;
+pub const F_SETFD: i32 = 2_i32;
+pub const FD_CLOEXEC: i32 = 1_i32;
+pub const __LC_ALL: i32 = 6_i32;
+pub const LC_ALL: i32 = __LC_ALL;
+pub const PF_LOCAL: i32 = 1_i32;
+pub const AF_LOCAL: i32 = PF_LOCAL;
+pub const SD_LISTEN_FDS_START: i32 = 3_i32;
 
 pub static mut original_rlimit_core: rlimit = rlimit {
     rlim_cur: 0,
     rlim_max: 0,
 };
 
-pub static mut listen_fds: ::core::ffi::c_int = 0;
+pub static mut listen_fds: i32 = 0;
 static mut xcb_prepare: *mut ev_prepare = std::ptr::null_mut::<ev_prepare>();
 
 pub static mut start_argv: *mut *mut ::core::ffi::c_char =
@@ -546,7 +546,7 @@ unsafe fn log_x11_error(error: &xcb::ProtocolError) {
     }
 }
 
-pub static mut conn_screen: ::core::ffi::c_int = 0;
+pub static mut conn_screen: i32 = 0;
 
 pub static mut sndisplay: *mut SnDisplay = std::ptr::null_mut::<SnDisplay>();
 
@@ -592,8 +592,7 @@ pub unsafe fn key_symbol(keycode: u8, column: i32) -> u32 {
         .map_or(0, |symbols| symbols.keysym(keycode, column))
 }
 
-pub static mut default_shmlog_size: ::core::ffi::c_int =
-    25 as ::core::ffi::c_int * 1024 as ::core::ffi::c_int * 1024 as ::core::ffi::c_int;
+pub static mut default_shmlog_size: i32 = 25_i32 * 1024_i32 * 1024_i32;
 
 pub static mut bindings: *mut bindings_head = std::ptr::null_mut::<bindings_head>();
 
@@ -822,7 +821,7 @@ unsafe extern "C" fn xcb_prepare_cb(
 pub unsafe fn main_set_x11_cb(enable: bool) {
     ::log::debug!(
         "../src/main.c:main_set_x11_cb:165 - Setting main X11 callback to enabled={}\n",
-        { (enable as ::core::ffi::c_int) }
+        { (enable as i32) }
     );
     if enable {
         ev_prepare_start(main_loop, xcb_prepare);
@@ -837,12 +836,12 @@ pub unsafe fn main_set_x11_cb(enable: bool) {
 }
 extern "C" fn i3_exit() {
     unsafe {
-        if *shmlogname as ::core::ffi::c_int != '\0' as i32 {
+        if *shmlogname as i32 != '\0' as i32 {
             fprintf(stderr, c"Closing SHM log \"%s\"\n".as_ptr(), shmlogname);
             fflush(stderr);
             shm_unlink(shmlogname);
         }
-        ipc_shutdown(ShutdownReason::Exit, -(1 as ::core::ffi::c_int));
+        ipc_shutdown(ShutdownReason::Exit, -1_i32);
         if let Some(path) = config.ipc_socket_path.as_deref() {
             let _ = std::fs::remove_file(path);
         }
@@ -872,7 +871,7 @@ unsafe extern "C" fn handle_core_signal(
     info: *mut siginfo_t,
     data: *mut ::core::ffi::c_void,
 ) {
-    if *shmlogname as ::core::ffi::c_int != '\0' as i32 {
+    if *shmlogname as i32 != '\0' as i32 {
         shm_unlink(shmlogname);
     }
     raise(sig);
@@ -882,7 +881,7 @@ unsafe extern "C" fn handle_term_signal(
     signal_0: *mut ev_signal,
     revents: ::core::ffi::c_int,
 ) {
-    exit(128 as ::core::ffi::c_int + (*signal_0).signum);
+    exit(128_i32 + (*signal_0).signum);
 }
 unsafe fn setup_term_handlers() {
     static mut WATCHERS: [std::mem::MaybeUninit<ev_signal>; 6] =
@@ -894,10 +893,10 @@ unsafe fn setup_term_handlers() {
         ev_unref(main_loop);
     }
 }
-unsafe fn parse_restart_fd() -> ::core::ffi::c_int {
+unsafe fn parse_restart_fd() -> i32 {
     let restart_fd: *const ::core::ffi::c_char = getenv(c"_I3_RESTART_FD".as_ptr());
     if restart_fd.is_null() {
-        return -(1 as ::core::ffi::c_int);
+        return -1_i32;
     }
     let Ok(fd) = parse_long(std::ffi::CStr::from_ptr(restart_fd).to_bytes(), 10) else {
         {
@@ -926,9 +925,9 @@ unsafe fn parse_restart_fd() -> ::core::ffi::c_int {
                 );
             }
         };
-        return -(1 as ::core::ffi::c_int);
+        return -1_i32;
     };
-    fd as ::core::ffi::c_int
+    fd as i32
 }
 /// Only the legacy restart/exec boundary receives a C-compatible argv array.
 /// Argument bytes remain owned by Rust for the complete event-loop lifetime.
@@ -1057,7 +1056,7 @@ fn print_usage(program: &std::ffi::OsStr, shmlog_limit: i32) {
     let _ = output.write_all(program.as_bytes());
     let _ = write!(output, " [-c configfile] [-d all] [-a] [-v] [-V] [-C]\n\n\t-a          disable autostart ('exec' lines in config)\n\t-c <file>   use the provided configfile instead\n\t-C          validate configuration file and exit\n\t-d all      enable debug output\n\t-L <file>   path to the serialized layout during restarts\n\t-v          display version and exit\n\t-V          enable verbose mode\n\n\t--force-xinerama\n\tUse Xinerama instead of RandR.\n\tThis option should only be used if you are stuck with the\n\told nVidia closed source driver (older than 302.17), which does\n\tnot support RandR.\n\n\t--get-socketpath\n\tRetrieve the i3 IPC socket path from X11, print it, then exit.\n\n\t--shmlog-size <limit>\n\tLimits the size of the i3 SHM log to <limit> bytes. Setting this\n\tto 0 disables SHM logging entirely.\n\tThe default is {shmlog_limit} bytes.\n\n\t--replace\n\tReplace an existing window manager.\n\nIf you pass plain text arguments, i3 will interpret them as a command\nto send to a currently running i3 (like i3-msg). This allows you to\nuse nice and logical commands, such as:\n\n\ti3 border none\n\ti3 floating toggle\n\ti3 kill window\n\n");
 }
-unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
+unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> i32 {
     use std::os::unix::ffi::OsStrExt;
     if arguments.is_empty() {
         arguments.push("i3".into());
@@ -1101,7 +1100,7 @@ unsafe fn run(mut arguments: Vec<std::ffi::OsString>) -> ::core::ffi::c_int {
     {
         default_shmlog_size
     } else {
-        0 as ::core::ffi::c_int
+        0_i32
     };
     _restart_arguments.install();
     let mut operands = Vec::new();
@@ -1232,11 +1231,11 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
         let socket_path_0: *mut ::core::ffi::c_char = root_atom_contents(
             c"I3_SOCKET_PATH".as_ptr(),
             ::core::ptr::null_mut::<xcb_connection_t>(),
-            0 as ::core::ffi::c_int,
+            0_i32,
         );
         if socket_path_0.is_null() {
             ::log::error!("ERROR: Could not get i3 IPC socket path\n");
-            return 1 as ::core::ffi::c_int;
+            return 1_i32;
         }
         let socket_path = std::ffi::CStr::from_ptr(socket_path_0).to_owned();
         free(socket_path_0.cast());
@@ -1286,7 +1285,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             let _ = output.write_all(command_reply_prefix(&reply.payload));
             let _ = output.write_all(b"\n");
         }
-        return 0 as ::core::ffi::c_int;
+        return 0_i32;
     }
     init_logging();
     if is_debug_build() {
@@ -1580,11 +1579,11 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     init_dpi(root_display());
     ::log::debug!(
         "../src/main.c:main:648 - root_depth = {}, visual_id = 0x{:08x}.\n",
-        { (root_depth as ::core::ffi::c_int) },
+        { (root_depth as i32) },
         { (visual_id) }
     );
-    ::log::debug!("../src/main.c:main:650 - root_screen->height_in_pixels = {}, root_screen->height_in_millimeters = {}\n", { (root_screen_info().height_in_pixels as ::core::ffi::c_int) }, { (root_screen_info().height_in_millimeters as ::core::ffi::c_int) });
-    ::log::debug!("../src/main.c:main:651 - One logical pixel corresponds to {} physical pixels on this display.\n", (logical_px(1 as ::core::ffi::c_int)) as i32);
+    ::log::debug!("../src/main.c:main:650 - root_screen->height_in_pixels = {}, root_screen->height_in_millimeters = {}\n", { (root_screen_info().height_in_pixels as i32) }, { (root_screen_info().height_in_millimeters as i32) });
+    ::log::debug!("../src/main.c:main:651 - One logical pixel corresponds to {} physical pixels on this display.\n", (logical_px(1_i32)) as i32);
     let gcookie = main_connection().send_request(&x::GetGeometry {
         drawable: x::Drawable::Window(x::Window::new(root)),
     });
@@ -1781,18 +1780,18 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             "ERROR: Another window manager seems to be running (X error {})\n",
             { (i32::from((*error.as_raw()).error_code)) }
         );
-        return 1 as ::core::ffi::c_int;
+        return 1_i32;
     }
     let Ok(greply) = main_connection().wait_for_reply(gcookie) else {
         ::log::error!("ERROR: Could not get geometry of the root window, exiting\n");
-        return 1 as ::core::ffi::c_int;
+        return 1_i32;
     };
     ::log::debug!(
         "../src/main.c:main:819 - root geometry reply: ({}, {}) {} x {}\n",
-        { (greply.x() as ::core::ffi::c_int) },
-        { (greply.y() as ::core::ffi::c_int) },
-        { (greply.width() as ::core::ffi::c_int) },
-        { (greply.height() as ::core::ffi::c_int) }
+        { (greply.x() as i32) },
+        { (greply.y() as i32) },
+        { (greply.width() as i32) },
+        { (greply.height() as i32) }
     );
     xcursor_load_cursors();
     xcursor_set_root_cursor(Cursor::Pointer);
@@ -1935,7 +1934,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
             disable_randr15 || config.disable_randr15,
         );
     }
-    if !layout_path.is_null() && randr_base > -(1 as ::core::ffi::c_int) {
+    if !layout_path.is_null() && randr_base > -1_i32 {
         let mut con: *mut Con = nodes::first_ptr(croot);
 
         while !con.is_null() {
@@ -1943,8 +1942,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
 
             while !output.is_null() {
                 if !((*output).active
-                    || strcmp((*con).name_ptr(), output_primary_name(output))
-                        != 0 as ::core::ffi::c_int)
+                    || strcmp((*con).name_ptr(), output_primary_name(output)) != 0_i32)
                 {
                     if (*output).con.is_null() {
                         output_init_con(output);
@@ -1968,18 +1966,16 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     } else if let Some(pointer_reply) = pointer_reply {
         ::log::debug!(
             "../src/main.c:main:995 - Pointer at {}, {}\n",
-            { (pointer_reply.root_x() as ::core::ffi::c_int) },
-            { (pointer_reply.root_y() as ::core::ffi::c_int) }
+            { (pointer_reply.root_x() as i32) },
+            { (pointer_reply.root_y() as i32) }
         );
-        output_0 = get_output_containing(
-            pointer_reply.root_x() as ::core::ffi::c_uint,
-            pointer_reply.root_y() as ::core::ffi::c_uint,
-        );
+        output_0 =
+            get_output_containing(pointer_reply.root_x() as u32, pointer_reply.root_y() as u32);
         if output_0.is_null() {
             ::log::error!(
                 "ERROR: ERROR: No screen at ({}, {}), starting on the first screen\n",
-                { (pointer_reply.root_x() as ::core::ffi::c_int) },
-                { (pointer_reply.root_y() as ::core::ffi::c_int) }
+                { (pointer_reply.root_x() as i32) },
+                { (pointer_reply.root_y() as i32) }
             );
         }
     }
@@ -2001,37 +1997,31 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     }
     let mut socket_ipc_io: *mut ev_io = ::core::ptr::null_mut::<ev_io>();
     listen_fds = crate::sd_daemon::listen_fds();
-    if listen_fds < 0 as ::core::ffi::c_int {
+    if listen_fds < 0_i32 {
         ::log::error!("ERROR: socket activation: Error in sd_listen_fds\n");
-    } else if listen_fds == 0 as ::core::ffi::c_int {
+    } else if listen_fds == 0_i32 {
         ::log::debug!("../src/main.c:main:1036 - socket activation: no sockets passed\n");
     } else {
-        let mut flags: ::core::ffi::c_int = 0;
-        let mut fd: ::core::ffi::c_int = SD_LISTEN_FDS_START;
+        let mut flags: i32 = 0;
+        let mut fd: i32 = SD_LISTEN_FDS_START;
         while fd < SD_LISTEN_FDS_START + listen_fds {
             ::log::debug!(
                 "../src/main.c:main:1042 - socket activation: also listening on fd {}\n",
-                (fd) as i32
+                { (fd) }
             );
             flags = fcntl(fd, F_GETFD);
-            if flags < 0 as ::core::ffi::c_int
-                || fcntl(fd, F_SETFD, flags & !FD_CLOEXEC) < 0 as ::core::ffi::c_int
-            {
-                ::log::error!(
-                    "ERROR: Could not disable FD_CLOEXEC on fd {}\n",
-                    (fd) as i32
-                );
+            if flags < 0_i32 || fcntl(fd, F_SETFD, flags & !FD_CLOEXEC) < 0_i32 {
+                ::log::error!("ERROR: Could not disable FD_CLOEXEC on fd {}\n", { (fd) });
             }
             socket_ipc_io = watchers.add(fd, ipc_new_client);
             fd += 1;
         }
     }
-    let restart_fd: ::core::ffi::c_int = parse_restart_fd() as ::core::ffi::c_int;
-    if restart_fd != -(1 as ::core::ffi::c_int) {
-        ::log::debug!(
-            "../src/main.c:main:1061 - serving restart fd {}",
-            (restart_fd) as i32
-        );
+    let restart_fd: i32 = parse_restart_fd();
+    if restart_fd != -1_i32 {
+        ::log::debug!("../src/main.c:main:1061 - serving restart fd {}", {
+            (restart_fd)
+        });
         let client: *mut ipc_client = ipc_new_client_on_fd(main_loop, restart_fd);
         ipc_confirm_restart(client);
         unsetenv(c"_I3_RESTART_FD".as_ptr());
@@ -2073,35 +2063,33 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     } else {
         let mut action: sigaction = ::core::mem::zeroed();
         action.sa_sigaction = handle_core_signal as *const () as usize;
-        action.sa_flags = (SA_NODEFER as ::core::ffi::c_uint
-            | SA_RESETHAND
-            | SA_SIGINFO as ::core::ffi::c_uint) as ::core::ffi::c_int;
+        action.sa_flags = (SA_NODEFER as u32 | SA_RESETHAND | SA_SIGINFO as u32) as i32;
         sigemptyset(&raw mut action.sa_mask);
         if sigaction(
             SIGQUIT,
             &raw mut action,
             ::core::ptr::null_mut::<sigaction>(),
-        ) == -(1 as ::core::ffi::c_int)
+        ) == -1_i32
             || sigaction(
                 SIGILL,
                 &raw mut action,
                 ::core::ptr::null_mut::<sigaction>(),
-            ) == -(1 as ::core::ffi::c_int)
+            ) == -1_i32
             || sigaction(
                 SIGABRT,
                 &raw mut action,
                 ::core::ptr::null_mut::<sigaction>(),
-            ) == -(1 as ::core::ffi::c_int)
+            ) == -1_i32
             || sigaction(
                 SIGFPE,
                 &raw mut action,
                 ::core::ptr::null_mut::<sigaction>(),
-            ) == -(1 as ::core::ffi::c_int)
+            ) == -1_i32
             || sigaction(
                 SIGSEGV,
                 &raw mut action,
                 ::core::ptr::null_mut::<sigaction>(),
-            ) == -(1 as ::core::ffi::c_int)
+            ) == -1_i32
         {
             ::log::error!("ERROR: Could not setup signal handler.\n");
         }
@@ -2179,7 +2167,7 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     }
     atexit(i3_exit);
     raise(SIGCHLD);
-    sd_notify(1 as ::core::ffi::c_int, c"READY=1");
+    sd_notify(1_i32, c"READY=1");
     ev_loop(main_loop, 0 as ::core::ffi::c_int);
     ev_prepare_stop(main_loop, xcb_prepare);
     drop(Box::from_raw(xcb_prepare));
@@ -2187,8 +2175,8 @@ i3_common::logging::emit_parts(i3_common::logging::Level::Verbose, &[ "Initializ
     drop(watchers);
     0
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const EXIT_SUCCESS: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
+pub const EXIT_FAILURE: i32 = 1_i32;
+pub const EXIT_SUCCESS: i32 = 0_i32;
 pub fn main() {
     // Native startup and the event loop still use their established ownership
     // contracts. CLI parsing itself owns byte-preserving Rust arguments.

@@ -135,8 +135,8 @@ pub unsafe fn startup_sequence_delete(sequence: *mut Startup_Sequence) {
         {
             let diagnostic_5_owner = sequence.id.clone();
             let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
-            let diagnostic_6 = (sequence.delete_at as libc::c_longlong);
-            let diagnostic_7 = (libc::time(std::ptr::null_mut()) as libc::c_longlong) as i64;
+            let diagnostic_6 = sequence.delete_at;
+            let diagnostic_7 = (libc::time(std::ptr::null_mut()) as i64) as i64;
             match (std::str::from_utf8(diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!("../src/startup.c:startup_sequence_delete:108 - Deleting startup sequence {}, delete_at = {}, current_time = {}\n", diagnostic_5_text, diagnostic_6, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/startup.c:startup_sequence_delete:108 - Deleting startup sequence ", diagnostic_5_bytes, b", delete_at = ", format!("{}", diagnostic_6).as_bytes(), b", current_time = ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
         };
         drop(sequence);

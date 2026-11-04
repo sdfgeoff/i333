@@ -65,8 +65,7 @@ pub struct i3_ipc_header {
 }
 pub type i3_ipc_header_t = i3_ipc_header;
 pub use crate::application::ipc_client;
-pub type handler_t =
-    Option<unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> ()>;
+pub type handler_t = Option<unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()>;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct ipc_client_head {
@@ -76,45 +75,40 @@ pub struct ipc_client_head {
 pub type ylength = usize;
 pub use crate::assignments::CommandResult;
 
-pub const MAJOR_VERSION: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-pub const MINOR_VERSION: ::core::ffi::c_int = 25 as ::core::ffi::c_int;
-pub const PATCH_VERSION: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const EINTR: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-pub const EAGAIN: ::core::ffi::c_int = 11 as ::core::ffi::c_int;
+pub const MAJOR_VERSION: i32 = 4_i32;
+pub const MINOR_VERSION: i32 = 25_i32;
+pub const PATCH_VERSION: i32 = 0_i32;
+pub const EINTR: i32 = 4_i32;
+pub const EAGAIN: i32 = 11_i32;
 
 pub const NULL: *mut ::core::ffi::c_void = ::core::ptr::null_mut::<::core::ffi::c_void>();
-pub const I3_IPC_REPLY_TYPE_COMMAND: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_WORKSPACES: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_SUBSCRIBE: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_OUTPUTS: ::core::ffi::c_int = 3 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_TREE: ::core::ffi::c_int = 4 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_MARKS: ::core::ffi::c_int = 5 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_BAR_CONFIG: ::core::ffi::c_int = 6 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_VERSION: ::core::ffi::c_int = 7 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_BINDING_MODES: ::core::ffi::c_int = 8 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_CONFIG: ::core::ffi::c_int = 9 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_TICK: ::core::ffi::c_int = 10 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_SYNC: ::core::ffi::c_int = 11 as ::core::ffi::c_int;
-pub const I3_IPC_REPLY_TYPE_GET_BINDING_STATE: ::core::ffi::c_int = 12 as ::core::ffi::c_int;
-pub const I3_IPC_EVENT_MASK: ::core::ffi::c_ulong =
-    (1 as ::core::ffi::c_ulong) << 31 as ::core::ffi::c_int;
-pub const I3_IPC_EVENT_WORKSPACE: ::core::ffi::c_ulong =
-    I3_IPC_EVENT_MASK | 0 as ::core::ffi::c_ulong;
-pub const I3_IPC_EVENT_WINDOW: ::core::ffi::c_ulong = I3_IPC_EVENT_MASK | 3 as ::core::ffi::c_ulong;
-pub const I3_IPC_EVENT_BARCONFIG_UPDATE: ::core::ffi::c_ulong =
-    I3_IPC_EVENT_MASK | 4 as ::core::ffi::c_ulong;
-pub const I3_IPC_EVENT_BINDING: ::core::ffi::c_ulong =
-    I3_IPC_EVENT_MASK | 5 as ::core::ffi::c_ulong;
-pub const I3_IPC_EVENT_SHUTDOWN: ::core::ffi::c_ulong =
-    I3_IPC_EVENT_MASK | 6 as ::core::ffi::c_ulong;
-pub const I3_IPC_EVENT_TICK: ::core::ffi::c_ulong = I3_IPC_EVENT_MASK | 7 as ::core::ffi::c_ulong;
-pub const O_RDONLY: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
-pub const F_SETFD: ::core::ffi::c_int = 2 as ::core::ffi::c_int;
-pub const FD_CLOEXEC: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const __LC_NUMERIC: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const SOL_SOCKET: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
-pub const SO_PEERCRED: ::core::ffi::c_int = 17 as ::core::ffi::c_int;
-pub const LC_NUMERIC: ::core::ffi::c_int = __LC_NUMERIC;
+pub const I3_IPC_REPLY_TYPE_COMMAND: i32 = 0_i32;
+pub const I3_IPC_REPLY_TYPE_WORKSPACES: i32 = 1_i32;
+pub const I3_IPC_REPLY_TYPE_SUBSCRIBE: i32 = 2_i32;
+pub const I3_IPC_REPLY_TYPE_OUTPUTS: i32 = 3_i32;
+pub const I3_IPC_REPLY_TYPE_TREE: i32 = 4_i32;
+pub const I3_IPC_REPLY_TYPE_MARKS: i32 = 5_i32;
+pub const I3_IPC_REPLY_TYPE_BAR_CONFIG: i32 = 6_i32;
+pub const I3_IPC_REPLY_TYPE_VERSION: i32 = 7_i32;
+pub const I3_IPC_REPLY_TYPE_BINDING_MODES: i32 = 8_i32;
+pub const I3_IPC_REPLY_TYPE_CONFIG: i32 = 9_i32;
+pub const I3_IPC_REPLY_TYPE_TICK: i32 = 10_i32;
+pub const I3_IPC_REPLY_TYPE_SYNC: i32 = 11_i32;
+pub const I3_IPC_REPLY_TYPE_GET_BINDING_STATE: i32 = 12_i32;
+pub const I3_IPC_EVENT_MASK: u64 = 1_u64 << 31_i32;
+pub const I3_IPC_EVENT_WORKSPACE: u64 = I3_IPC_EVENT_MASK | 0_u64;
+pub const I3_IPC_EVENT_WINDOW: u64 = I3_IPC_EVENT_MASK | 3_u64;
+pub const I3_IPC_EVENT_BARCONFIG_UPDATE: u64 = I3_IPC_EVENT_MASK | 4_u64;
+pub const I3_IPC_EVENT_BINDING: u64 = I3_IPC_EVENT_MASK | 5_u64;
+pub const I3_IPC_EVENT_SHUTDOWN: u64 = I3_IPC_EVENT_MASK | 6_u64;
+pub const I3_IPC_EVENT_TICK: u64 = I3_IPC_EVENT_MASK | 7_u64;
+pub const O_RDONLY: i32 = 0_i32;
+pub const F_SETFD: i32 = 2_i32;
+pub const FD_CLOEXEC: i32 = 1_i32;
+pub const __LC_NUMERIC: i32 = 1_i32;
+pub const SOL_SOCKET: i32 = 1_i32;
+pub const SO_PEERCRED: i32 = 17_i32;
+pub const LC_NUMERIC: i32 = __LC_NUMERIC;
 
 pub static mut current_socketpath: Option<std::path::PathBuf> = None;
 
@@ -243,7 +237,7 @@ unsafe fn ipc_send_client_message(
         ipc_push_pending(client);
     }
 }
-unsafe fn free_ipc_client(client: *mut ipc_client, exempt_fd: libc::c_int) {
+unsafe fn free_ipc_client(client: *mut ipc_client, exempt_fd: i32) {
     if (*client).fd != exempt_fd {
         ::log::debug!(
             "../src/ipc.c:free_ipc_client:119 - Disconnecting client on fd {}\n",
@@ -305,12 +299,12 @@ unsafe fn ipc_send_shutdown_event(reason: ShutdownReason) {
     send_typed_event(b"shutdown", I3_IPC_EVENT_SHUTDOWN as u32, &event);
 }
 
-pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: ::core::ffi::c_int) {
+pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: i32) {
     ipc_send_shutdown_event(reason);
     while !all_clients.tqh_first.is_null() {
         let current: *mut ipc_client = all_clients.tqh_first;
         if (*current).fd != exempt_fd {
-            shutdown((*current).fd, libc::SHUT_RDWR as ::core::ffi::c_int);
+            shutdown((*current).fd, libc::SHUT_RDWR);
         }
         free_ipc_client(current, exempt_fd);
     }
@@ -481,7 +475,7 @@ impl Drop for CommandResultOwner {
 unsafe fn handle_run_command(
     client: *mut ipc_client,
     message: *mut u8,
-    _: libc::c_int,
+    _: i32,
     message_size: u32,
     _: u32,
 ) {
@@ -735,7 +729,7 @@ unsafe fn snapshot_node_header(con: *mut Con, restart: bool) -> messages::NodeHe
                         None => NativeValue::Rejected,
                     }),
             ),
-            transient_for: ((*window).transient_for as libc::c_long != 0)
+            transient_for: ((*window).transient_for as i64 != 0)
                 .then_some((*window).transient_for as i64),
         }
     }));
@@ -1141,7 +1135,7 @@ unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
 unsafe fn handle_tree(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    size: i32,
     message_size: u32,
     message_type: u32,
 ) {
@@ -1159,7 +1153,7 @@ unsafe fn handle_tree(
 unsafe fn handle_get_workspaces(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    size: i32,
     message_size: u32,
     message_type: u32,
 ) {
@@ -1194,7 +1188,7 @@ unsafe fn handle_get_workspaces(
 unsafe fn handle_get_outputs(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    size: i32,
     message_size: u32,
     message_type: u32,
 ) {
@@ -1220,7 +1214,7 @@ unsafe fn handle_get_outputs(
 unsafe fn handle_get_marks(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    size: i32,
     message_size: u32,
     message_type: u32,
 ) {
@@ -1238,7 +1232,7 @@ unsafe fn handle_get_marks(
 unsafe fn handle_get_version(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    size: i32,
     message_size: u32,
     message_type: u32,
 ) {
@@ -1265,7 +1259,7 @@ unsafe fn handle_get_version(
 unsafe fn handle_get_bar_config(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    size: i32,
     message_size: u32,
     message_type: u32,
 ) {
@@ -1327,7 +1321,7 @@ unsafe fn handle_get_bar_config(
 unsafe fn handle_get_binding_modes(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    size: i32,
     message_size: u32,
     message_type: u32,
 ) {
@@ -1363,7 +1357,7 @@ fn parse_subscriptions(
 unsafe fn handle_subscribe(
     client: *mut ipc_client,
     message: *mut u8,
-    _: libc::c_int,
+    _: i32,
     message_size: u32,
     _: u32,
 ) {
@@ -1432,7 +1426,7 @@ unsafe fn handle_subscribe(
 unsafe fn handle_get_config(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    size: i32,
     message_size: u32,
     message_type: u32,
 ) {
@@ -1470,7 +1464,7 @@ unsafe fn handle_get_config(
 unsafe fn handle_send_tick(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    size: i32,
     message_size: u32,
     message_type: u32,
 ) {
@@ -1546,7 +1540,7 @@ fn parse_sync(message: &[u8]) -> Result<SyncRequest, i3_common::json_stream::Par
 unsafe fn handle_sync(
     client: *mut ipc_client,
     message: *mut u8,
-    _: libc::c_int,
+    _: i32,
     message_size: u32,
     _: u32,
 ) {
@@ -1603,7 +1597,7 @@ unsafe fn handle_sync(
 unsafe fn handle_get_binding_state(
     client: *mut ipc_client,
     message: *mut u8,
-    size: ::core::ffi::c_int,
+    size: i32,
     message_size: u32,
     message_type: u32,
 ) {
@@ -1614,49 +1608,19 @@ unsafe fn handle_get_binding_state(
 }
 
 pub const handlers: [handler_t; 13] = [
-    Some(
-        handle_run_command
-            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
-    Some(
-        handle_get_workspaces
-            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
-    Some(
-        handle_subscribe as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
-    Some(
-        handle_get_outputs
-            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
-    Some(handle_tree as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> ()),
-    Some(
-        handle_get_marks as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
-    Some(
-        handle_get_bar_config
-            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
-    Some(
-        handle_get_version
-            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
-    Some(
-        handle_get_binding_modes
-            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
-    Some(
-        handle_get_config
-            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
-    Some(
-        handle_send_tick as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
-    Some(handle_sync as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> ()),
-    Some(
-        handle_get_binding_state
-            as unsafe fn(*mut ipc_client, *mut u8, ::core::ffi::c_int, u32, u32) -> (),
-    ),
+    Some(handle_run_command as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_get_workspaces as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_subscribe as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_get_outputs as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_tree as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_get_marks as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_get_bar_config as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_get_version as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_get_binding_modes as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_get_config as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_send_tick as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_sync as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_get_binding_state as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
 ];
 unsafe extern "C" fn ipc_receive_message(_: *mut ev_loop, w: *mut ev_io, _: libc::c_int) {
     let client = (*w).data.cast::<ipc_client>();
@@ -1809,9 +1773,9 @@ pub unsafe extern "C" fn ipc_new_client(
         sun_path: [0; 108],
     };
     let mut len: libc::socklen_t = ::core::mem::size_of::<sockaddr_un>() as libc::socklen_t;
-    let mut fd: ::core::ffi::c_int = 0;
+    let mut fd: i32 = 0;
     fd = accept((*w).fd, &raw mut peer as *mut sockaddr, &raw mut len);
-    if fd < 0 as ::core::ffi::c_int {
+    if fd < 0_i32 {
         if *__errno_location() != EINTR {
             perror(c"accept()".as_ptr());
         }
@@ -1823,7 +1787,7 @@ pub unsafe extern "C" fn ipc_new_client(
 
 /// fd transfers a valid owned descriptor. All clients are Box-allocated here;
 /// watcher pointers are stable Box allocations stopped before matching drops.
-pub unsafe fn ipc_new_client_on_fd(loop_: *mut ev_loop, fd: libc::c_int) -> *mut ipc_client {
+pub unsafe fn ipc_new_client_on_fd(loop_: *mut ev_loop, fd: i32) -> *mut ipc_client {
     set_nonblock(fd);
     let owner = std::os::fd::OwnedFd::from_raw_fd(fd);
     let read = Box::into_raw(Box::new(ev_io::new(fd, EV_READ, ipc_receive_message)));
@@ -1911,7 +1875,7 @@ pub unsafe fn ipc_send_window_event(property: *const ::core::ffi::c_char, con: *
         let log_value_2 = (if !(*con).window.is_null() {
             (*(*con).window).id
         } else {
-            0 as ::core::ffi::c_int as u32
+            0_i32 as u32
         });
         if let Ok(log_value_0_text) = std::str::from_utf8(&log_value_0) {
             ::log::debug!("../src/ipc.c:ipc_send_window_event:1644 - Issue IPC window {} event (con = {}, window = 0x{:08x})\n", log_value_0_text, log_value_1, log_value_2);

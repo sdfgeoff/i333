@@ -114,9 +114,8 @@ pub unsafe fn cfg_include(
         we_wordv: ::core::ptr::null_mut::<*mut ::core::ffi::c_char>(),
         we_offs: 0,
     };
-    let ret: ::core::ffi::c_int =
-        wordexp(pattern, &raw mut p, 0 as ::core::ffi::c_int) as ::core::ffi::c_int;
-    if ret != 0 as ::core::ffi::c_int {
+    let ret: i32 = wordexp(pattern, &raw mut p, 0 as ::core::ffi::c_int) as i32;
+    if ret != 0_i32 {
         // GNU wordexp may leave partial output on WRDE_NOSPACE (value1 in the
         // supported native ABI); other failed expansions transfer no ownership.
         if ret == 1 {
@@ -650,7 +649,7 @@ pub unsafe fn cfg_for_window(
     *assignments.tqh_last = assignment;
     assignments.tqh_last = &raw mut (*assignment).assignments.tqe_next;
 }
-unsafe fn apply_gaps(gaps: *mut gaps_t, mask: gaps_mask_t, value: ::core::ffi::c_int) {
+unsafe fn apply_gaps(gaps: *mut gaps_t, mask: gaps_mask_t, value: i32) {
     if gaps.is_null() {
         return;
     }
@@ -673,7 +672,7 @@ unsafe fn apply_gaps(gaps: *mut gaps_t, mask: gaps_mask_t, value: ::core::ffi::c
 unsafe fn create_gaps_assignment(
     workspace: *const ::core::ffi::c_char,
     mask: gaps_mask_t,
-    pixels: ::core::ffi::c_int,
+    pixels: i32,
 ) {
     if mask.is_empty() {
         return;
@@ -706,7 +705,7 @@ unsafe fn create_gaps_assignment(
     let mut assignment: *mut Workspace_Assignment = ws_assignments.tqh_first;
 
     while !assignment.is_null() {
-        if strcasecmp((*assignment).name.as_ptr(), workspace) == 0 as ::core::ffi::c_int {
+        if strcasecmp((*assignment).name.as_ptr(), workspace) == 0_i32 {
             found = true;
             break;
         } else {
@@ -780,9 +779,9 @@ pub unsafe fn cfg_gaps(
     result: *mut ConfigResultIR,
     workspace: *const ::core::ffi::c_char,
     scope: *const ::core::ffi::c_char,
-    value: ::core::ffi::c_long,
+    value: i64,
 ) {
-    let pixels: ::core::ffi::c_int = logical_px(value as ::core::ffi::c_int) as ::core::ffi::c_int;
+    let pixels: i32 = logical_px(value as i32) as i32;
     let mask: gaps_mask_t = gaps_scope_to_mask(scope);
     if workspace.is_null() {
         apply_gaps(&raw mut config.gaps, mask, pixels);
@@ -826,8 +825,8 @@ pub unsafe fn cfg_smart_gaps(
 pub unsafe fn cfg_floating_minimum_size(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    width: ::core::ffi::c_long,
-    height: ::core::ffi::c_long,
+    width: i64,
+    height: i64,
 ) {
     config.floating_minimum_width = width as i32;
     config.floating_minimum_height = height as i32;
@@ -836,8 +835,8 @@ pub unsafe fn cfg_floating_minimum_size(
 pub unsafe fn cfg_floating_maximum_size(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    width: ::core::ffi::c_long,
-    height: ::core::ffi::c_long,
+    width: i64,
+    height: i64,
 ) {
     config.floating_maximum_width = width as i32;
     config.floating_maximum_height = height as i32;
@@ -872,9 +871,9 @@ pub unsafe fn cfg_default_orientation(
     result: *mut ConfigResultIR,
     orientation: *const ::core::ffi::c_char,
 ) {
-    if strcmp(orientation, c"horizontal".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(orientation, c"horizontal".as_ptr()) == 0_i32 {
         config.default_orientation = Orientation::Horizontal;
-    } else if strcmp(orientation, c"vertical".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if strcmp(orientation, c"vertical".as_ptr()) == 0_i32 {
         config.default_orientation = Orientation::Vertical;
     } else {
         config.default_orientation = Orientation::None;
@@ -886,10 +885,10 @@ pub unsafe fn cfg_workspace_layout(
     result: *mut ConfigResultIR,
     layout: *const ::core::ffi::c_char,
 ) {
-    if strcmp(layout, c"default".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(layout, c"default".as_ptr()) == 0_i32 {
         config.default_layout = Layout::Default;
-    } else if strcmp(layout, c"stacking".as_ptr()) == 0 as ::core::ffi::c_int
-        || strcmp(layout, c"stacked".as_ptr()) == 0 as ::core::ffi::c_int
+    } else if strcmp(layout, c"stacking".as_ptr()) == 0_i32
+        || strcmp(layout, c"stacked".as_ptr()) == 0_i32
     {
         config.default_layout = Layout::Stacked;
     } else {
@@ -902,29 +901,29 @@ pub unsafe fn cfg_default_border(
     result: *mut ConfigResultIR,
     windowtype: *const ::core::ffi::c_char,
     border: *const ::core::ffi::c_char,
-    width: ::core::ffi::c_long,
+    width: i64,
 ) {
     let mut border_style: BorderStyle = BorderStyle::None;
-    let mut border_width: ::core::ffi::c_int = 0;
-    if strcmp(border, c"1pixel".as_ptr()) == 0 as ::core::ffi::c_int {
+    let mut border_width: i32 = 0;
+    if strcmp(border, c"1pixel".as_ptr()) == 0_i32 {
         border_style = BorderStyle::Pixel;
-        border_width = 1 as ::core::ffi::c_int;
-    } else if strcmp(border, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
+        border_width = 1_i32;
+    } else if strcmp(border, c"none".as_ptr()) == 0_i32 {
         border_style = BorderStyle::None;
-        border_width = 0 as ::core::ffi::c_int;
-    } else if strcmp(border, c"pixel".as_ptr()) == 0 as ::core::ffi::c_int {
+        border_width = 0_i32;
+    } else if strcmp(border, c"pixel".as_ptr()) == 0_i32 {
         border_style = BorderStyle::Pixel;
-        border_width = width as ::core::ffi::c_int;
+        border_width = width as i32;
     } else {
         border_style = BorderStyle::Normal;
-        border_width = width as ::core::ffi::c_int;
+        border_width = width as i32;
     }
-    if strcmp(windowtype, c"default_border".as_ptr()) == 0 as ::core::ffi::c_int
-        || strcmp(windowtype, c"new_window".as_ptr()) == 0 as ::core::ffi::c_int
+    if strcmp(windowtype, c"default_border".as_ptr()) == 0_i32
+        || strcmp(windowtype, c"new_window".as_ptr()) == 0_i32
     {
         {
             let log_value_0 = ((border_style) as u32) as i32;
-            let log_value_1 = (border_width) as i32;
+            let log_value_1 = (border_width);
             let log_value_2 = (logical_px(border_width)) as i32;
             ::log::debug!("../src/config_directives.c:cfg_default_border:416 - default tiled border style = {} and border width = {} ({} physical px)\n", log_value_0, log_value_1, log_value_2);
         };
@@ -933,7 +932,7 @@ pub unsafe fn cfg_default_border(
     } else {
         {
             let log_value_0 = ((border_style) as u32) as i32;
-            let log_value_1 = (border_width) as i32;
+            let log_value_1 = (border_width);
             let log_value_2 = (logical_px(border_width)) as i32;
             ::log::debug!("../src/config_directives.c:cfg_default_border:421 - default floating border style = {} and border width = {} ({} physical px)\n", log_value_0, log_value_1, log_value_2);
         };
@@ -979,9 +978,9 @@ pub unsafe fn cfg_mouse_warping(
     result: *mut ConfigResultIR,
     value: *const ::core::ffi::c_char,
 ) {
-    if strcmp(value, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(value, c"none".as_ptr()) == 0_i32 {
         config.mouse_warping = Warping::None;
-    } else if strcmp(value, c"output".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if strcmp(value, c"output".as_ptr()) == 0_i32 {
         config.mouse_warping = Warping::Output;
     }
 }
@@ -1049,10 +1048,9 @@ pub unsafe fn cfg_fake_outputs(
 pub unsafe fn cfg_force_display_urgency_hint(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    duration_ms: ::core::ffi::c_long,
+    duration_ms: i64,
 ) {
-    config.workspace_urgency_timer =
-        (duration_ms as ::core::ffi::c_double / 1000.0f64) as ::core::ffi::c_float;
+    config.workspace_urgency_timer = (duration_ms as f64 / 1000.0f64) as f32;
 }
 
 pub unsafe fn cfg_focus_on_window_activation(
@@ -1060,13 +1058,13 @@ pub unsafe fn cfg_focus_on_window_activation(
     result: *mut ConfigResultIR,
     mode: *const ::core::ffi::c_char,
 ) {
-    if strcmp(mode, c"smart".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(mode, c"smart".as_ptr()) == 0_i32 {
         config.focus_on_window_activation = FocusActivation::Smart;
-    } else if strcmp(mode, c"urgent".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if strcmp(mode, c"urgent".as_ptr()) == 0_i32 {
         config.focus_on_window_activation = FocusActivation::Urgent;
-    } else if strcmp(mode, c"focus".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if strcmp(mode, c"focus".as_ptr()) == 0_i32 {
         config.focus_on_window_activation = FocusActivation::Focus;
-    } else if strcmp(mode, c"none".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if strcmp(mode, c"none".as_ptr()) == 0_i32 {
         config.focus_on_window_activation = FocusActivation::None;
     } else {
         {
@@ -1100,7 +1098,7 @@ pub unsafe fn cfg_focus_on_window_activation(
         return;
     }
     {
-        let log_value_0 = (config.focus_on_window_activation as ::core::ffi::c_uint) as i32;
+        let log_value_0 = (config.focus_on_window_activation as u32) as i32;
         ::log::debug!("../src/config_directives.c:cfg_focus_on_window_activation:519 - Set new focus_on_window_activation mode = {}.\n", log_value_0);
     };
 }
@@ -1110,11 +1108,11 @@ pub unsafe fn cfg_title_align(
     result: *mut ConfigResultIR,
     alignment: *const ::core::ffi::c_char,
 ) {
-    if strcmp(alignment, c"left".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(alignment, c"left".as_ptr()) == 0_i32 {
         config.title_align = TitleAlign::Left;
-    } else if strcmp(alignment, c"center".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if strcmp(alignment, c"center".as_ptr()) == 0_i32 {
         config.title_align = TitleAlign::Center;
-    } else if strcmp(alignment, c"right".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if strcmp(alignment, c"right".as_ptr()) == 0_i32 {
         config.title_align = TitleAlign::Right;
     } else {
         __assert_fail(
@@ -1161,7 +1159,7 @@ pub unsafe fn cfg_workspace(
             .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
         assignment = ws_assignments.tqh_first;
         while !assignment.is_null() {
-            if strcasecmp((*assignment).name.as_ptr(), workspace) == 0 as ::core::ffi::c_int
+            if strcasecmp((*assignment).name.as_ptr(), workspace) == 0_i32
                 && (*assignment).output.is_some()
             {
                 {
@@ -1275,11 +1273,11 @@ pub unsafe fn cfg_popup_during_fullscreen(
     result: *mut ConfigResultIR,
     value: *const ::core::ffi::c_char,
 ) {
-    if strcmp(value, c"ignore".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(value, c"ignore".as_ptr()) == 0_i32 {
         config.popup_during_fullscreen = PopupDuringFullscreen::Ignore;
-    } else if strcmp(value, c"leave_fullscreen".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if strcmp(value, c"leave_fullscreen".as_ptr()) == 0_i32 {
         config.popup_during_fullscreen = PopupDuringFullscreen::LeaveFullscreen;
-    } else if strcmp(value, c"all".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if strcmp(value, c"all".as_ptr()) == 0_i32 {
         config.popup_during_fullscreen = PopupDuringFullscreen::All;
     } else {
         config.popup_during_fullscreen = PopupDuringFullscreen::Smart;
@@ -1319,10 +1317,8 @@ pub unsafe fn cfg_color(
         .as_ref()
         .map(|value| CStr::from_ptr(value).to_bytes().to_vec());
     let screen = crate::application::root_display_opt();
-    if strcmp(colorclass.as_ptr(), c"client.focused_inactive".as_ptr()) == 0 as ::core::ffi::c_int {
-        if strcmp(c"focused_tab_title".as_ptr(), c"focused_inactive".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+    if strcmp(colorclass.as_ptr(), c"client.focused_inactive".as_ptr()) == 0_i32 {
+        if strcmp(c"focused_tab_title".as_ptr(), c"focused_inactive".as_ptr()) == 0_i32 {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1342,11 +1338,8 @@ pub unsafe fn cfg_color(
         }
         return;
     }
-    if strcmp(colorclass.as_ptr(), c"client.focused_tab_title".as_ptr()) == 0 as ::core::ffi::c_int
-    {
-        if strcmp(c"focused_tab_title".as_ptr(), c"focused_tab_title".as_ptr())
-            == 0 as ::core::ffi::c_int
-        {
+    if strcmp(colorclass.as_ptr(), c"client.focused_tab_title".as_ptr()) == 0_i32 {
+        if strcmp(c"focused_tab_title".as_ptr(), c"focused_tab_title".as_ptr()) == 0_i32 {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1367,8 +1360,8 @@ pub unsafe fn cfg_color(
         }
         return;
     }
-    if strcmp(colorclass.as_ptr(), c"client.focused".as_ptr()) == 0 as ::core::ffi::c_int {
-        if strcmp(c"focused_tab_title".as_ptr(), c"focused".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(colorclass.as_ptr(), c"client.focused".as_ptr()) == 0_i32 {
+        if strcmp(c"focused_tab_title".as_ptr(), c"focused".as_ptr()) == 0_i32 {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1387,8 +1380,8 @@ pub unsafe fn cfg_color(
         }
         return;
     }
-    if strcmp(colorclass.as_ptr(), c"client.unfocused".as_ptr()) == 0 as ::core::ffi::c_int {
-        if strcmp(c"focused_tab_title".as_ptr(), c"unfocused".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(colorclass.as_ptr(), c"client.unfocused".as_ptr()) == 0_i32 {
+        if strcmp(c"focused_tab_title".as_ptr(), c"unfocused".as_ptr()) == 0_i32 {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1407,8 +1400,8 @@ pub unsafe fn cfg_color(
         }
         return;
     }
-    if strcmp(colorclass.as_ptr(), c"client.urgent".as_ptr()) == 0 as ::core::ffi::c_int {
-        if strcmp(c"focused_tab_title".as_ptr(), c"urgent".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(colorclass.as_ptr(), c"client.urgent".as_ptr()) == 0_i32 {
+        if strcmp(c"focused_tab_title".as_ptr(), c"urgent".as_ptr()) == 0_i32 {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1427,9 +1420,8 @@ pub unsafe fn cfg_color(
         }
         return;
     }
-    if strcmp(colorclass.as_ptr(), c"client.placeholder".as_ptr()) == 0 as ::core::ffi::c_int {
-        if strcmp(c"focused_tab_title".as_ptr(), c"placeholder".as_ptr()) == 0 as ::core::ffi::c_int
-        {
+    if strcmp(colorclass.as_ptr(), c"client.placeholder".as_ptr()) == 0_i32 {
+        if strcmp(c"focused_tab_title".as_ptr(), c"placeholder".as_ptr()) == 0_i32 {
             config.client.got_focused_tab_title = true;
             if indicator.is_some() || child_border.is_some() {
                 ::log::error!("ERROR: indicator and child_border colors have no effect for client.focused_tab_title\n");
@@ -1562,8 +1554,7 @@ pub unsafe fn cfg_assign(
         return;
     }
     if is_number
-        && ws_name_to_number(std::ffi::CStr::from_ptr(workspace).to_bytes()).unwrap_or(-1)
-            == -(1 as ::core::ffi::c_int)
+        && ws_name_to_number(std::ffi::CStr::from_ptr(workspace).to_bytes()).unwrap_or(-1) == -1_i32
     {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
@@ -1675,7 +1666,7 @@ pub unsafe fn cfg_no_focus(current_match: *mut Match, result: *mut ConfigResultI
 pub unsafe fn cfg_ipc_kill_timeout(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    timeout_ms: ::core::ffi::c_long,
+    timeout_ms: i64,
 ) {
     ipc_set_kill_timeout(timeout_ms as ev_tstamp / 1000.0f64);
 }
@@ -1685,12 +1676,12 @@ pub unsafe fn cfg_tiling_drag(
     result: *mut ConfigResultIR,
     value: *const ::core::ffi::c_char,
 ) {
-    if strcmp(value, c"modifier".as_ptr()) == 0 as ::core::ffi::c_int {
+    if strcmp(value, c"modifier".as_ptr()) == 0_i32 {
         config.tiling_drag = TilingDrag::MODIFIER;
-    } else if strcmp(value, c"titlebar".as_ptr()) == 0 as ::core::ffi::c_int {
+    } else if strcmp(value, c"titlebar".as_ptr()) == 0_i32 {
         config.tiling_drag = TilingDrag::TITLEBAR;
-    } else if strcmp(value, c"modifier,titlebar".as_ptr()) == 0 as ::core::ffi::c_int
-        || strcmp(value, c"titlebar,modifier".as_ptr()) == 0 as ::core::ffi::c_int
+    } else if strcmp(value, c"modifier,titlebar".as_ptr()) == 0_i32
+        || strcmp(value, c"titlebar,modifier".as_ptr()) == 0_i32
     {
         config.tiling_drag = TilingDrag::MODIFIER_OR_TITLEBAR;
     } else {
@@ -1759,11 +1750,7 @@ pub unsafe fn cfg_bar_verbose(
     (*current_bar).verbose = verbose;
 }
 
-pub unsafe fn cfg_bar_height(
-    current_match: *mut Match,
-    result: *mut ConfigResultIR,
-    height: ::core::ffi::c_long,
-) {
+pub unsafe fn cfg_bar_height(current_match: *mut Match, result: *mut ConfigResultIR, height: i64) {
     (*current_bar).bar_height = height as u32;
 }
 unsafe fn dlog_padding() {
@@ -1785,7 +1772,7 @@ unsafe fn dlog_padding() {
 pub unsafe fn cfg_bar_padding_one(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    all: ::core::ffi::c_long,
+    all: i64,
 ) {
     (*current_bar).padding.x = all as u32;
     (*current_bar).padding.y = all as u32;
@@ -1797,8 +1784,8 @@ pub unsafe fn cfg_bar_padding_one(
 pub unsafe fn cfg_bar_padding_two(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    top_and_bottom: ::core::ffi::c_long,
-    right_and_left: ::core::ffi::c_long,
+    top_and_bottom: i64,
+    right_and_left: i64,
 ) {
     (*current_bar).padding.x = right_and_left as u32;
     (*current_bar).padding.y = top_and_bottom as u32;
@@ -1810,9 +1797,9 @@ pub unsafe fn cfg_bar_padding_two(
 pub unsafe fn cfg_bar_padding_three(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    top: ::core::ffi::c_long,
-    right_and_left: ::core::ffi::c_long,
-    bottom: ::core::ffi::c_long,
+    top: i64,
+    right_and_left: i64,
+    bottom: i64,
 ) {
     (*current_bar).padding.x = right_and_left as u32;
     (*current_bar).padding.y = top as u32;
@@ -1824,10 +1811,10 @@ pub unsafe fn cfg_bar_padding_three(
 pub unsafe fn cfg_bar_padding_four(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    top: ::core::ffi::c_long,
-    right: ::core::ffi::c_long,
-    bottom: ::core::ffi::c_long,
-    left: ::core::ffi::c_long,
+    top: i64,
+    right: i64,
+    bottom: i64,
+    left: i64,
 ) {
     (*current_bar).padding.x = left as u32;
     (*current_bar).padding.y = top as u32;
@@ -1872,8 +1859,8 @@ unsafe fn bar_configure_binding(button: &[u8], release: bool, command: &[u8]) {
         };
         return;
     }
-    let input_code: ::core::ffi::c_int = atoi(native_button.as_ptr().add(c"button".count_bytes()));
-    if input_code < 1 as ::core::ffi::c_int {
+    let input_code: i32 = atoi(native_button.as_ptr().add(c"button".count_bytes()));
+    if input_code < 1_i32 {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
             let log_value_0 = bar_prefix(button).to_vec();
@@ -2104,9 +2091,9 @@ pub unsafe fn cfg_bar_tray_output(
 pub unsafe fn cfg_bar_tray_padding(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    padding_px: ::core::ffi::c_long,
+    padding_px: i64,
 ) {
-    (*current_bar).tray_padding = padding_px as ::core::ffi::c_int;
+    (*current_bar).tray_padding = padding_px as i32;
 }
 
 pub unsafe fn cfg_bar_color_single(
@@ -2165,9 +2152,9 @@ pub unsafe fn cfg_bar_workspace_buttons(
 pub unsafe fn cfg_bar_workspace_min_width(
     current_match: *mut Match,
     result: *mut ConfigResultIR,
-    width: ::core::ffi::c_long,
+    width: i64,
 ) {
-    (*current_bar).workspace_min_width = width as ::core::ffi::c_int;
+    (*current_bar).workspace_min_width = width as i32;
 }
 
 pub unsafe fn cfg_bar_strip_workspace_numbers(
@@ -2192,8 +2179,8 @@ pub unsafe fn cfg_bar_start(current_match: *mut Match, result: *mut ConfigResult
     (*current_bar).bar_bindings.tqh_last = &raw mut (*current_bar).bar_bindings.tqh_first;
     (*current_bar).tray_outputs.tqh_first = ::core::ptr::null_mut::<tray_output_t>();
     (*current_bar).tray_outputs.tqh_last = &raw mut (*current_bar).tray_outputs.tqh_first;
-    (*current_bar).tray_padding = 2 as ::core::ffi::c_int;
-    (*current_bar).modifier = (::xcb::x::KeyButMask::MOD4.bits()) as ::core::ffi::c_int as u32;
+    (*current_bar).tray_padding = 2_i32;
+    (*current_bar).modifier = (::xcb::x::KeyButMask::MOD4.bits()) as i32 as u32;
 }
 
 pub unsafe fn cfg_bar_finish(current_match: *mut Match, result: *mut ConfigResultIR) {

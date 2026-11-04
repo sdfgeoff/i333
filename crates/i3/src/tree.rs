@@ -60,7 +60,7 @@ unsafe fn _create___i3() -> *mut Con {
         ::core::ptr::null_mut::<i3Window>(),
     );
     (*ws).type_0 = ContainerType::Workspace;
-    (*ws).num = -(1 as ::core::ffi::c_int);
+    (*ws).num = -1_i32;
     (*ws).name = Some(c"__i3_scratch".to_owned());
     (*ws).layout = Layout::SplitH;
     con_attach(ws, content, false);
@@ -162,7 +162,7 @@ pub unsafe fn tree_restore(
                     "../src/tree.c:tree_restore:103 - ws = {}\n",
                     i3_common::logging::pointer(ws)
                 );
-                if strcmp((*out).name_ptr(), c"__i3".as_ptr()) != 0 as ::core::ffi::c_int {
+                if strcmp((*out).name_ptr(), c"__i3".as_ptr()) != 0_i32 {
                     ::log::debug!("../src/tree.c:tree_restore:108 - Adding pseudo-output __i3 during inplace restart\n");
                     let mut __i3: *mut Con = _create___i3();
                     nodes::move_to_front(
@@ -244,7 +244,7 @@ pub unsafe fn tree_close_internal(
     ::log::debug!(
         "../src/tree.c:tree_close_internal:202 - closing {}, kill_window = {}\n",
         i3_common::logging::pointer(con),
-        (kill_window as ::core::ffi::c_uint) as i32
+        (kill_window as u32) as i32
     );
     let mut abort_kill: bool = false;
     let owner_id = identity(con).expect("live closing container");
@@ -289,7 +289,7 @@ pub unsafe fn tree_close_internal(
                 // The existing ignored-event cache stores native full_sequence's low 32 bits.
                 value: cookie.sequence() as u32,
             },
-            0 as ::core::ffi::c_int,
+            0_i32,
         );
         cookie = connection().send_request(&x::ChangeProperty {
             mode: x::PropMode::Replace,
@@ -313,7 +313,7 @@ pub unsafe fn tree_close_internal(
                 // The existing ignored-event cache stores native full_sequence's low 32 bits.
                 value: cookie.sequence() as u32,
             },
-            0 as ::core::ffi::c_int,
+            0_i32,
         );
         ipc_send_window_event(c"close".as_ptr(), con);
         window_free((*con).window as *mut i3Window);
@@ -395,8 +395,8 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
         return;
     }
     if ((*con).type_0) == ContainerType::Workspace {
-        if con_num_children(con) < 2 as ::core::ffi::c_int {
-            if con_num_children(con) == 0 as ::core::ffi::c_int {
+        if con_num_children(con) < 2_i32 {
+            if con_num_children(con) == 0_i32 {
                 ::log::debug!(
                     "../src/tree.c:tree_split:336 - Changing workspace_layout to L_DEFAULT\n"
                 );
@@ -415,7 +415,7 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
     }
     let parent: *mut Con = parent_ptr(con);
     con_force_split_parents_redraw(con);
-    if con_num_children(parent) == 1 as ::core::ffi::c_int
+    if con_num_children(parent) == 1_i32
         && ((*parent).layout == Layout::SplitH || (*parent).layout == Layout::SplitV)
     {
         (*parent).layout = if orientation == Orientation::Horizontal {
@@ -430,7 +430,7 @@ pub unsafe fn tree_split(mut con: *mut Con, orientation: Orientation) {
     }
     ::log::debug!(
         "../src/tree.c:tree_split:365 - Splitting in orientation {}\n",
-        (orientation as ::core::ffi::c_uint) as i32
+        (orientation as u32) as i32
     );
     let new: *mut Con = con_new(
         ::core::ptr::null_mut::<Con>(),
@@ -533,8 +533,7 @@ unsafe fn get_tree_next_workspace(con: *mut Con, direction: Direction) -> *mut C
         .rect
         .y
         .wrapping_add((*con).rect.height.wrapping_div(2_u32));
-    let current_output: *mut Output =
-        get_output_containing(x as ::core::ffi::c_uint, y as ::core::ffi::c_uint);
+    let current_output: *mut Output = get_output_containing(x, y);
     if current_output.is_null() {
         return ::core::ptr::null_mut::<Con>();
     }
@@ -654,9 +653,7 @@ unsafe fn get_tree_next(mut con: *mut Con, direction: Direction) -> *mut Con {
                     };
                     return next;
                 }
-                if con_num_children(parent) > 1 as ::core::ffi::c_int
-                    && con_orientation(parent) == orientation
-                {
+                if con_num_children(parent) > 1_i32 && con_orientation(parent) == orientation {
                     let next_0: *mut Con = if previous {
                         nodes::previous_ptr(con)
                     } else {

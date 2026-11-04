@@ -403,9 +403,9 @@ mod tests {
         unsafe {
             assert_eq!(super::super::con_by_window_id(0x123), first);
             assert_eq!(super::super::con_by_frame_id(0x456), first);
-            assert_eq!(super::super::con_by_con_id(first as libc::c_long), first);
+            assert_eq!(super::super::con_by_con_id(first as i64), first);
             release(first);
-            assert!(super::super::con_by_con_id(first as libc::c_long).is_null());
+            assert!(super::super::con_by_con_id(first as i64).is_null());
             assert_eq!(super::super::con_by_window_id(0x123), second);
             assert_eq!(super::super::con_by_frame_id(0x456), second);
             release(second);

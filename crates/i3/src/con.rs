@@ -345,7 +345,7 @@ pub unsafe fn con_close(con: *mut Con, kill_window: KillWindow) {
         ::log::debug!(
             "../src/con.c:con_close:342 - con = {} is of type {}, not closing anything.\n",
             i3_common::logging::pointer(con),
-            (((*con).type_0).raw() as ::core::ffi::c_uint) as i32
+            ((*con).type_0).raw() as i32
         );
         return;
     }
@@ -504,7 +504,7 @@ pub unsafe fn con_get_workspace(con: *mut Con) -> *mut Con {
 }
 
 pub unsafe fn con_parent_with_orientation(con: *mut Con, orientation: Orientation) -> *mut Con {
-    ::log::debug!("../src/con.c:con_parent_with_orientation:560 - Searching for parent of Con {} with orientation {}\n", i3_common::logging::pointer(con), (orientation as ::core::ffi::c_uint) as i32);
+    ::log::debug!("../src/con.c:con_parent_with_orientation:560 - Searching for parent of Con {} with orientation {}\n", i3_common::logging::pointer(con), (orientation as u32) as i32);
     let mut parent: *mut Con = parent_ptr(con);
     if ((*parent).type_0) == ContainerType::Floating {
         return ::core::ptr::null_mut::<Con>();
@@ -1151,7 +1151,7 @@ unsafe fn con_set_fullscreen_mode(con: *mut Con, fullscreen_mode: FullscreenMode
     (*con).fullscreen_mode = fullscreen_mode;
     ::log::debug!(
         "../src/con.c:con_set_fullscreen_mode:1212 - mode now: {}\n",
-        (((*con).fullscreen_mode).raw() as ::core::ffi::c_uint) as i32
+        ((*con).fullscreen_mode).raw() as i32
     );
     ipc_send_window_event(c"fullscreen_mode".as_ptr(), con);
     if (*con).window.is_null() {
@@ -1428,7 +1428,7 @@ unsafe fn _con_move_to_con(
             (*con).rect =
                 floating_fix_coordinates((*con).rect, (*source_output).rect, (*dest_output).rect);
         } else {
-            ::log::debug!("../src/con.c:_con_move_to_con:1394 - Not fixing coordinates, fix_coordinates flag = {}\n", { (fix_coordinates as ::core::ffi::c_int) });
+            ::log::debug!("../src/con.c:_con_move_to_con:1394 - Not fixing coordinates, fix_coordinates flag = {}\n", { (fix_coordinates as i32) });
         }
     }
     let mut fullscreen: *mut Con = con_get_fullscreen_con(target_ws, FullscreenMode::Output);
@@ -1756,7 +1756,7 @@ pub unsafe fn con_orientation(con: *mut Con) -> Orientation {
         Layout::DockArea | Layout::Output => {
             ::log::error!(
                 "ERROR: con_orientation() called on dockarea/output ({}) container {}\n",
-                ((*con).layout as ::core::ffi::c_uint) as i32,
+                ((*con).layout as u32) as i32,
                 i3_common::logging::pointer(con)
             );
             __assert_fail(
@@ -1835,7 +1835,7 @@ pub unsafe fn con_descend_direction(con: *mut Con, direction: Direction) -> *mut
     let mut most: *mut Con = ::core::ptr::null_mut::<Con>();
     let mut current: *mut Con = ::core::ptr::null_mut::<Con>();
     let orientation: Orientation = con_orientation(con);
-    ::log::debug!("../src/con.c:con_descend_direction:1741 - con_descend_direction({}, orientation {}, direction {})\n", i3_common::logging::pointer(con), ((orientation) as u32) as i32, (direction as ::core::ffi::c_uint) as i32);
+    ::log::debug!("../src/con.c:con_descend_direction:1741 - con_descend_direction({}, orientation {}, direction {})\n", i3_common::logging::pointer(con), ((orientation) as u32) as i32, (direction as u32) as i32);
     if direction == Direction::Left || direction == Direction::Right {
         if orientation == Orientation::Horizontal {
             if direction == Direction::Right {
@@ -2068,8 +2068,8 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
     ::log::debug!(
         "../src/con.c:con_set_layout:1999 - con_set_layout({}, {}), con->type = {}\n",
         i3_common::logging::pointer(con),
-        (layout as ::core::ffi::c_uint) as i32,
-        (((*con).type_0).raw() as ::core::ffi::c_uint) as i32
+        (layout as u32) as i32,
+        ((*con).type_0).raw() as i32
     );
     if ((*con).type_0) != ContainerType::Workspace {
         con = parent_ptr(con);
@@ -2086,12 +2086,12 @@ pub unsafe fn con_set_layout(mut con: *mut Con, layout: Layout) {
             };
             ::log::debug!(
                 "../src/con.c:con_set_layout:2022 - Setting workspace_layout to {}\n",
-                (ws_layout as ::core::ffi::c_uint) as i32
+                (ws_layout as u32) as i32
             );
             (*con).workspace_layout = ws_layout;
             ::log::debug!(
                 "../src/con.c:con_set_layout:2024 - Setting layout to {}\n",
-                (layout as ::core::ffi::c_uint) as i32
+                (layout as u32) as i32
             );
             (*con).layout = layout;
         } else if layout == Layout::Stacked
@@ -2426,9 +2426,9 @@ pub unsafe fn con_minimum_size(con: *mut Con) -> Rect {
     }
     ::log::error!(
         "ERROR: Unhandled case, type = {}, layout = {}, split = {}\n",
-        (((*con).type_0).raw() as ::core::ffi::c_uint) as i32,
-        ((*con).layout as ::core::ffi::c_uint) as i32,
-        { (con_is_split(con) as ::core::ffi::c_int) }
+        ((*con).type_0).raw() as i32,
+        ((*con).layout as u32) as i32,
+        { (con_is_split(con) as i32) }
     );
     __assert_fail(
         c"false".as_ptr(),
@@ -2540,9 +2540,7 @@ pub unsafe fn con_set_urgency(con: *mut Con, urgent: bool) {
         workspace_update_urgent_flag(ws);
     }
     if (*con).urgent != old_urgent {
-        ::log::info!("Urgency flag changed to {}\n", {
-            ((*con).urgent as ::core::ffi::c_int)
-        });
+        ::log::info!("Urgency flag changed to {}\n", { ((*con).urgent as i32) });
         ipc_send_window_event(c"urgent".as_ptr(), con);
     }
 }
@@ -2691,7 +2689,7 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
         ::log::error!(
             "ERROR: Only regular containers can be swapped, but found con = {} with type = {}.\n",
             i3_common::logging::pointer(first),
-            (((*first).type_0).raw() as ::core::ffi::c_uint) as i32
+            ((*first).type_0).raw() as i32
         );
         return false;
     }
@@ -2699,7 +2697,7 @@ pub unsafe fn con_swap(first: *mut Con, second: *mut Con) -> bool {
         ::log::error!(
             "ERROR: Only regular containers can be swapped, but found con = {} with type = {}.\n",
             i3_common::logging::pointer(second),
-            (((*second).type_0).raw() as ::core::ffi::c_uint) as i32
+            ((*second).type_0).raw() as i32
         );
         return false;
     }

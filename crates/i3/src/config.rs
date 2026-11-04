@@ -175,7 +175,7 @@ pub struct parser_ctx {
     pub state: ConfigParserState,
     pub current_match: Match,
     pub statelist: Vec<ConfigParserState>,
-    pub statelist_idx: ::core::ffi::c_int,
+    pub statelist_idx: i32,
     pub stack: *mut stack,
     pub variables: variables_head,
     pub has_errors: bool,
@@ -766,20 +766,20 @@ pub unsafe fn load_configuration(
     config.show_marks = true;
     config.default_border = BorderStyle::Normal;
     config.default_floating_border = BorderStyle::Normal;
-    config.default_border_width = logical_px(2 as ::core::ffi::c_int);
-    config.default_floating_border_width = logical_px(2 as ::core::ffi::c_int);
+    config.default_border_width = logical_px(2_i32);
+    config.default_floating_border_width = logical_px(2_i32);
     config.default_orientation = Orientation::None;
-    config.gaps.inner = 0 as ::core::ffi::c_int;
-    config.gaps.top = 0 as ::core::ffi::c_int;
-    config.gaps.right = 0 as ::core::ffi::c_int;
-    config.gaps.bottom = 0 as ::core::ffi::c_int;
-    config.gaps.left = 0 as ::core::ffi::c_int;
-    if config.workspace_urgency_timer == 0 as ::core::ffi::c_int as ::core::ffi::c_float {
+    config.gaps.inner = 0_i32;
+    config.gaps.top = 0_i32;
+    config.gaps.right = 0_i32;
+    config.gaps.bottom = 0_i32;
+    config.gaps.left = 0_i32;
+    if config.workspace_urgency_timer == 0_i32 as f32 {
         config.workspace_urgency_timer = 0.5f32;
     }
     config.focus_wrapping = FocusWrapping::On;
     config.tiling_drag = TilingDrag::MODIFIER;
-    config.swap_modifier = (::xcb::x::KeyButMask::SHIFT.bits()) as ::core::ffi::c_int as u32;
+    config.swap_modifier = (::xcb::x::KeyButMask::SHIFT.bits()) as i32 as u32;
     free(current_configpath as *mut ::core::ffi::c_void);
     current_configpath = ::core::ptr::null_mut::<::core::ffi::c_char>();
     current_configpath = get_config_path(override_configpath, true);
@@ -883,7 +883,7 @@ pub unsafe fn load_configuration(
     }
     result == ParseFileResult::Success
 }
-pub const EXIT_FAILURE: ::core::ffi::c_int = 1 as ::core::ffi::c_int;
+pub const EXIT_FAILURE: i32 = 1_i32;
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::bindings::reorder_bindings;
 use crate::bindings::switch_mode;

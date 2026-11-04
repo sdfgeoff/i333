@@ -356,10 +356,10 @@ pub unsafe fn ewmh_update_client_list_stacking(stack: *mut u32, num_windows: i32
 /// conn and the requested window belong to the native event thread.
 pub unsafe fn ewmh_update_sticky(window: u32, sticky: bool) {
     if sticky {
-        ::log::debug!("../src/ewmh.c:ewmh_update_sticky:{} - Setting _NET_WM_STATE_STICKY for window = {:08x}.\n", { (283 as ::core::ffi::c_int) }, { (window) });
+        ::log::debug!("../src/ewmh.c:ewmh_update_sticky:{} - Setting _NET_WM_STATE_STICKY for window = {:08x}.\n", { 283_i32 }, { (window) });
         xcb_add_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_STICKY);
     } else {
-        ::log::debug!("../src/ewmh.c:ewmh_update_sticky:{} - Removing _NET_WM_STATE_STICKY for window = {:08x}.\n", { (286 as ::core::ffi::c_int) }, { (window) });
+        ::log::debug!("../src/ewmh.c:ewmh_update_sticky:{} - Removing _NET_WM_STATE_STICKY for window = {:08x}.\n", { 286_i32 }, { (window) });
         xcb_remove_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_STICKY);
     };
 }
@@ -368,10 +368,10 @@ pub unsafe fn ewmh_update_sticky(window: u32, sticky: bool) {
 /// conn and the requested window belong to the native event thread.
 pub unsafe fn ewmh_update_focused(window: u32, is_focused: bool) {
     if is_focused {
-        ::log::debug!("../src/ewmh.c:ewmh_update_focused:{} - Setting _NET_WM_STATE_FOCUSED for window = {:08x}.\n", { (297 as ::core::ffi::c_int) }, { (window) });
+        ::log::debug!("../src/ewmh.c:ewmh_update_focused:{} - Setting _NET_WM_STATE_FOCUSED for window = {:08x}.\n", { 297_i32 }, { (window) });
         xcb_add_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_FOCUSED);
     } else {
-        ::log::debug!("../src/ewmh.c:ewmh_update_focused:{} - Removing _NET_WM_STATE_FOCUSED for window = {:08x}.\n", { (300 as ::core::ffi::c_int) }, { (window) });
+        ::log::debug!("../src/ewmh.c:ewmh_update_focused:{} - Removing _NET_WM_STATE_FOCUSED for window = {:08x}.\n", { 300_i32 }, { (window) });
         xcb_remove_property_atom(conn, window, A__NET_WM_STATE, A__NET_WM_STATE_FOCUSED);
     };
 }

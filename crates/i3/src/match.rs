@@ -568,7 +568,7 @@ pub unsafe fn match_parse_property(
             return;
         }
         if property == b"con_id" {
-            if strcmp(cvalue, c"__focused__".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcmp(cvalue, c"__focused__".as_ptr()) == 0_i32 {
                 (*match_0).con_id = global_focused;
                 return;
             }
@@ -634,25 +634,25 @@ pub unsafe fn match_parse_property(
             return;
         }
         if property == b"window_type" {
-            if strcasecmp(cvalue, c"normal".as_ptr()) == 0 as ::core::ffi::c_int {
+            if strcasecmp(cvalue, c"normal".as_ptr()) == 0_i32 {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NORMAL;
-            } else if strcasecmp(cvalue, c"dialog".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(cvalue, c"dialog".as_ptr()) == 0_i32 {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_DIALOG;
-            } else if strcasecmp(cvalue, c"utility".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(cvalue, c"utility".as_ptr()) == 0_i32 {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_UTILITY;
-            } else if strcasecmp(cvalue, c"toolbar".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(cvalue, c"toolbar".as_ptr()) == 0_i32 {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_TOOLBAR;
-            } else if strcasecmp(cvalue, c"splash".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(cvalue, c"splash".as_ptr()) == 0_i32 {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_SPLASH;
-            } else if strcasecmp(cvalue, c"menu".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(cvalue, c"menu".as_ptr()) == 0_i32 {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_MENU;
-            } else if strcasecmp(cvalue, c"dropdown_menu".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(cvalue, c"dropdown_menu".as_ptr()) == 0_i32 {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_DROPDOWN_MENU;
-            } else if strcasecmp(cvalue, c"popup_menu".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(cvalue, c"popup_menu".as_ptr()) == 0_i32 {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_POPUP_MENU;
-            } else if strcasecmp(cvalue, c"tooltip".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(cvalue, c"tooltip".as_ptr()) == 0_i32 {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_TOOLTIP;
-            } else if strcasecmp(cvalue, c"notification".as_ptr()) == 0 as ::core::ffi::c_int {
+            } else if strcasecmp(cvalue, c"notification".as_ptr()) == 0_i32 {
                 (*match_0).window_type = A__NET_WM_WINDOW_TYPE_NOTIFICATION;
             } else {
                 {
@@ -684,14 +684,14 @@ pub unsafe fn match_parse_property(
             return;
         }
         if property == b"urgent" {
-            if strcasecmp(cvalue, c"latest".as_ptr()) == 0 as ::core::ffi::c_int
-                || strcasecmp(cvalue, c"newest".as_ptr()) == 0 as ::core::ffi::c_int
-                || strcasecmp(cvalue, c"recent".as_ptr()) == 0 as ::core::ffi::c_int
-                || strcasecmp(cvalue, c"last".as_ptr()) == 0 as ::core::ffi::c_int
+            if strcasecmp(cvalue, c"latest".as_ptr()) == 0_i32
+                || strcasecmp(cvalue, c"newest".as_ptr()) == 0_i32
+                || strcasecmp(cvalue, c"recent".as_ptr()) == 0_i32
+                || strcasecmp(cvalue, c"last".as_ptr()) == 0_i32
             {
                 (*match_0).urgent = UrgencyMatch::Latest;
-            } else if strcasecmp(cvalue, c"oldest".as_ptr()) == 0 as ::core::ffi::c_int
-                || strcasecmp(cvalue, c"first".as_ptr()) == 0 as ::core::ffi::c_int
+            } else if strcasecmp(cvalue, c"oldest".as_ptr()) == 0_i32
+                || strcasecmp(cvalue, c"first".as_ptr()) == 0_i32
             {
                 (*match_0).urgent = UrgencyMatch::Oldest;
             }
@@ -711,14 +711,14 @@ pub unsafe fn match_parse_property(
         }
         if property == b"tiling_from"
             && !cvalue.is_null()
-            && strcmp(cvalue, c"auto".as_ptr()) == 0 as ::core::ffi::c_int
+            && strcmp(cvalue, c"auto".as_ptr()) == 0_i32
         {
             (*match_0).window_mode = WindowMode::TilingAuto;
             return;
         }
         if property == b"tiling_from"
             && !cvalue.is_null()
-            && strcmp(cvalue, c"user".as_ptr()) == 0 as ::core::ffi::c_int
+            && strcmp(cvalue, c"user".as_ptr()) == 0_i32
         {
             (*match_0).window_mode = WindowMode::TilingUser;
             return;
@@ -729,14 +729,14 @@ pub unsafe fn match_parse_property(
         }
         if property == b"floating_from"
             && !cvalue.is_null()
-            && strcmp(cvalue, c"auto".as_ptr()) == 0 as ::core::ffi::c_int
+            && strcmp(cvalue, c"auto".as_ptr()) == 0_i32
         {
             (*match_0).window_mode = WindowMode::FloatingAuto;
             return;
         }
         if property == b"floating_from"
             && !cvalue.is_null()
-            && strcmp(cvalue, c"user".as_ptr()) == 0 as ::core::ffi::c_int
+            && strcmp(cvalue, c"user".as_ptr()) == 0_i32
         {
             (*match_0).window_mode = WindowMode::FloatingUser;
             return;

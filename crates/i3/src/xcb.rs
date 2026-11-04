@@ -90,7 +90,7 @@ fn take_focus_message(
     )
 }
 
-pub static mut xcb_numlock_mask: ::core::ffi::c_uint = 0;
+pub static mut xcb_numlock_mask: u32 = 0;
 
 /// Create a helper window using the caller's retained connection. Independent
 /// placeholder/emergency connections must never be replaced by the registry.
@@ -151,10 +151,10 @@ pub unsafe fn fake_absolute_configure_notify(con: *mut Con) {
     let absolute = absolute_geometry((*con).rect, (*con).window_rect);
     ::log::debug!(
         "../src/xcb.c:fake_absolute_configure_notify:75 - fake rect = ({}, {}, {}, {})\n",
-        { (absolute.x as ::core::ffi::c_int) },
-        { (absolute.y as ::core::ffi::c_int) },
-        { (absolute.width as ::core::ffi::c_int) },
-        { (absolute.height as ::core::ffi::c_int) }
+        { (absolute.x as i32) },
+        { (absolute.y as i32) },
+        { (absolute.width as i32) },
+        { (absolute.height as i32) }
     );
     if let Some(connection) = i3_common::display::connection() {
         send_configure_notify(
@@ -201,7 +201,7 @@ pub unsafe fn xcb_set_window_rect(conn_0: *mut xcb_connection_t, window: u32, r:
         ignore_event_sequence_t {
             value: ::xcb::Cookie::sequence(&cookie) as u32,
         },
-        -(1 as ::core::ffi::c_int),
+        -1_i32,
     );
 }
 
@@ -328,11 +328,7 @@ pub unsafe fn xcb_remove_property_atom(
 
 /// Native display/graph boundary: requires a live event-thread connection and
 /// initialized, exclusively accessible pointers/resources for this operation.
-pub unsafe fn xcb_grab_buttons(
-    conn_0: *mut xcb_connection_t,
-    window: u32,
-    buttons: *mut ::core::ffi::c_int,
-) {
+pub unsafe fn xcb_grab_buttons(conn_0: *mut xcb_connection_t, window: u32, buttons: *mut i32) {
     let Some(connection) = borrowed(conn_0) else {
         return;
     };

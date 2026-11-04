@@ -1923,10 +1923,7 @@ pub unsafe fn cmd_append_layout(
         }
     } else {
         content = json_determine_content(buf, len);
-        ::log::info!(
-            "JSON content = {}\n",
-            (content as ::core::ffi::c_uint) as i32
-        );
+        ::log::info!("JSON content = {}\n", (content as u32) as i32);
         if content == JsonContent::Unknown {
             {
                 // Snapshot native bytes before the logger can dispatch a callback.
@@ -2118,7 +2115,7 @@ pub unsafe fn cmd_workspace_number(
     if workspace.is_null() {
         ::log::info!(
             "There is no workspace with number {}, creating a new one.\n",
-            (parsed_num) as libc::c_long
+            { (parsed_num) }
         );
         if (*cmd_output).has_reply() {
             emit_command_reply(cmd_output, CommandReply::Success(true));
@@ -2904,8 +2901,7 @@ pub unsafe fn cmd_split(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 =
-            vec![(*direction.offset(0 as ::core::ffi::c_int as isize) as ::core::ffi::c_int) as u8];
+        let log_value_0 = vec![*direction as u8];
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::info!("splitting in direction {}\n", log_value_0_text);
         } else {
@@ -5917,7 +5913,7 @@ pub unsafe fn cmd_shmlog(
     }
     ::log::info!(
         "{} shm logging\n",
-        if shmlog_size > 0 as ::core::ffi::c_int {
+        if shmlog_size > 0_i32 {
             "Enabling"
         } else {
             "Disabling"
@@ -5939,7 +5935,7 @@ pub unsafe fn cmd_debuglog(
     if strcmp(argument, c"toggle".as_ptr()) == 0 {
         ::log::info!(
             "{} debug logging\n",
-            if logging as ::core::ffi::c_int != 0 {
+            if logging as i32 != 0 {
                 "Disabling"
             } else {
                 "Enabling"

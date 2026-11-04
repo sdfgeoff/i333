@@ -449,7 +449,7 @@ pub unsafe fn floating_enable(con: *mut Con, automatic: bool) -> bool {
     if (*nc).rect.x == 0_u32 && (*nc).rect.y == 0_u32 {
         let mut leader: *mut Con = ::core::ptr::null_mut::<Con>();
         if !(*con).window.is_null()
-            && (*(*con).window).leader as ::core::ffi::c_long != 0
+            && (*(*con).window).leader as i64 != 0
             && (*(*con).window).id != (*(*con).window).leader
             && {
                 leader = con_by_window_id((*(*con).window).leader);

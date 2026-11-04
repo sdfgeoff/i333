@@ -350,7 +350,7 @@ impl LayoutState {
         }
         1_i32
     }
-    unsafe fn json_key(&mut self, val: *const ::core::ffi::c_uchar, len: usize) -> i32 {
+    unsafe fn json_key(&mut self, val: *const u8, len: usize) -> i32 {
         let logged_key = property_string(if len == 0 {
             &[]
         } else {
@@ -403,7 +403,7 @@ impl LayoutState {
         }
         1_i32
     }
-    unsafe fn json_string(&mut self, val: *const ::core::ffi::c_uchar, len: usize) -> i32 {
+    unsafe fn json_string(&mut self, val: *const u8, len: usize) -> i32 {
         let logged_string = property_string(if len == 0 {
             &[]
         } else {

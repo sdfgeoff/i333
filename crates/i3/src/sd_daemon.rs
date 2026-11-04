@@ -40,23 +40,23 @@ use std::os::unix::net::{SocketAddr, UnixDatagram};
 use std::path::Path;
 use std::ptr::NonNull;
 
-pub const SD_LISTEN_FDS_START: c_int = 3;
+pub const SD_LISTEN_FDS_START: i32 = 3;
 
-fn negative_errno(error: io::Error) -> c_int {
+fn negative_errno(error: io::Error) -> i32 {
     -error.raw_os_error().unwrap_or(libc::EINVAL)
 }
 
-fn last_error() -> c_int {
+fn last_error() -> i32 {
     negative_errno(io::Error::last_os_error())
 }
 
 /// Match strtoul's decimal environment grammar, including unsigned negation,
 /// locale whitespace, overflow precedence, and the empty FDS value.
-fn environment_number(bytes: &[u8]) -> Result<libc::c_ulong, c_int> {
+fn environment_number(bytes: &[u8]) -> Result<u64, i32> {
     let mut cursor = 0;
     while bytes.get(cursor).is_some_and(|byte| {
         // Every u8 is in isspace's valid unsigned-character domain.
-        unsafe { libc::isspace(c_int::from(*byte)) != 0 }
+        unsafe { libc::isspace(i32::from(*byte)) != 0 }
     }) {
         cursor += 1;
     }
@@ -65,7 +65,7 @@ fn environment_number(bytes: &[u8]) -> Result<libc::c_ulong, c_int> {
         cursor += 1;
     }
     let digits_start = cursor;
-    let mut number: libc::c_ulong = 0;
+    let mut number: u64 = 0;
     let mut overflow = false;
     while let Some(byte @ b'0'..=b'9') = bytes.get(cursor) {
         match number
@@ -95,8 +95,8 @@ fn inherited_fds(
     pid: Option<&[u8]>,
     count: Option<&[u8]>,
     process_id: u32,
-    mark_cloexec: impl FnMut(RawFd) -> Result<(), c_int>,
-) -> c_int {
+    mark_cloexec: impl FnMut(RawFd) -> Result<(), i32>,
+) -> i32 {
     inherited_fds_with_parser(pid, count, process_id, environment_number, mark_cloexec)
 }
 
@@ -104,9 +104,9 @@ fn inherited_fds_with_parser(
     pid: Option<&[u8]>,
     count: Option<&[u8]>,
     process_id: u32,
-    mut parse: impl FnMut(&[u8]) -> Result<libc::c_ulong, c_int>,
-    mut mark_cloexec: impl FnMut(RawFd) -> Result<(), c_int>,
-) -> c_int {
+    mut parse: impl FnMut(&[u8]) -> Result<u64, i32>,
+    mut mark_cloexec: impl FnMut(RawFd) -> Result<(), i32>,
+) -> i32 {
     let Some(pid) = pid else { return 0 };
     let pid = match parse(pid) {
         Ok(0) => return -libc::EINVAL,
@@ -118,7 +118,7 @@ fn inherited_fds_with_parser(
     }
     let Some(count) = count else { return 0 };
     let count = match parse(count) {
-        Ok(count) => count as c_int,
+        Ok(count) => count as i32,
         Err(error) => return error,
     };
     // The historical API narrows the unsigned count to int. Keep its wrapping
@@ -131,7 +131,7 @@ fn inherited_fds_with_parser(
     count
 }
 
-fn mark_cloexec(fd: RawFd) -> Result<(), c_int> {
+fn mark_cloexec(fd: RawFd) -> Result<(), i32> {
     // These integer-only syscalls validate even invalid descriptors themselves.
     // In particular, environment data does not justify borrowing an OwnedFd.
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
@@ -148,7 +148,7 @@ fn mark_cloexec(fd: RawFd) -> Result<(), c_int> {
 
 /// Inspect activation variables without taking ownership of inherited fds or
 /// mutating the process environment.
-pub fn listen_fds() -> c_int {
+pub fn listen_fds() -> i32 {
     let pid = std::env::var_os("LISTEN_PID");
     let count = std::env::var_os("LISTEN_FDS");
     inherited_fds_with_parser(
@@ -177,7 +177,7 @@ pub fn listen_fds() -> c_int {
 /// # Safety
 /// If `unset_environment` is nonzero, the caller must ensure no other thread
 /// reads or modifies the process environment, including native libraries.
-pub unsafe fn sd_listen_fds(unset_environment: c_int) -> c_int {
+pub unsafe fn sd_listen_fds(unset_environment: i32) -> i32 {
     let result = listen_fds();
     if unset_environment != 0 {
         unsafe {
@@ -188,7 +188,7 @@ pub unsafe fn sd_listen_fds(unset_environment: c_int) -> c_int {
     result
 }
 
-fn descriptor_metadata(fd: RawFd) -> Result<libc::stat, c_int> {
+fn descriptor_metadata(fd: RawFd) -> Result<libc::stat, i32> {
     if fd < 0 {
         return Err(-libc::EINVAL);
     }
@@ -201,23 +201,23 @@ fn descriptor_metadata(fd: RawFd) -> Result<libc::stat, c_int> {
     Ok(unsafe { metadata.assume_init() })
 }
 
-fn fifo_metadata(fd: RawFd) -> Result<Option<libc::stat>, c_int> {
+fn fifo_metadata(fd: RawFd) -> Result<Option<libc::stat>, i32> {
     let metadata = descriptor_metadata(fd)?;
     Ok((metadata.st_mode & libc::S_IFMT == libc::S_IFIFO).then_some(metadata))
 }
 
-fn fifo_path_matches(metadata: &libc::stat, path: &Path) -> c_int {
+fn fifo_path_matches(metadata: &libc::stat, path: &Path) -> i32 {
     match fs::metadata(path) {
         Ok(path_metadata) => {
             (metadata.st_dev == path_metadata.dev() && metadata.st_ino == path_metadata.ino())
-                as c_int
+                as i32
         }
         Err(error) if matches!(error.raw_os_error(), Some(libc::ENOENT | libc::ENOTDIR)) => 0,
         Err(error) => negative_errno(error),
     }
 }
 
-pub fn is_fifo(fd: RawFd, path: Option<&Path>) -> c_int {
+pub fn is_fifo(fd: RawFd, path: Option<&Path>) -> i32 {
     match fifo_metadata(fd) {
         Ok(Some(metadata)) => path.map_or(1, |path| fifo_path_matches(&metadata, path)),
         Ok(None) => 0,
@@ -227,7 +227,7 @@ pub fn is_fifo(fd: RawFd, path: Option<&Path>) -> c_int {
 
 /// # Safety
 /// A non-null path must point to a valid NUL-terminated string when `fd` is a FIFO.
-pub unsafe fn sd_is_fifo(fd: RawFd, path: *const c_char) -> c_int {
+pub unsafe fn sd_is_fifo(fd: RawFd, path: *const c_char) -> i32 {
     let metadata = match fifo_metadata(fd) {
         Ok(Some(metadata)) => metadata,
         Ok(None) => return 0,
@@ -240,8 +240,8 @@ pub unsafe fn sd_is_fifo(fd: RawFd, path: *const c_char) -> c_int {
     fifo_path_matches(&metadata, Path::new(OsStr::from_bytes(path.to_bytes())))
 }
 
-fn socket_option(fd: RawFd, option: c_int) -> Result<c_int, c_int> {
-    let mut value: c_int = 0;
+fn socket_option(fd: RawFd, option: i32) -> Result<i32, i32> {
+    let mut value: i32 = 0;
     let mut length = size_of::<c_int>() as libc::socklen_t;
     // The kernel sees a correctly sized writable integer and length pair.
     if unsafe {
@@ -262,7 +262,7 @@ fn socket_option(fd: RawFd, option: c_int) -> Result<c_int, c_int> {
     Ok(value)
 }
 
-fn socket_matches(fd: RawFd, socket_type: c_int, listening: c_int) -> Result<bool, c_int> {
+fn socket_matches(fd: RawFd, socket_type: i32, listening: i32) -> Result<bool, i32> {
     if socket_type < 0 {
         return Err(-libc::EINVAL);
     }
@@ -292,7 +292,7 @@ struct SocketAddress {
 }
 
 impl SocketAddress {
-    fn query(fd: RawFd) -> Result<Self, c_int> {
+    fn query(fd: RawFd) -> Result<Self, i32> {
         let mut storage = AddressStorage {
             _alignment: [],
             bytes: [0; size_of::<libc::sockaddr_storage>()],
@@ -310,11 +310,11 @@ impl SocketAddress {
         Ok(Self { storage, length })
     }
 
-    fn family(&self) -> c_int {
+    fn family(&self) -> i32 {
         libc::sa_family_t::from_ne_bytes([self.storage.bytes[0], self.storage.bytes[1]]).into()
     }
 
-    fn port(&self) -> Result<Option<u16>, c_int> {
+    fn port(&self) -> Result<Option<u16>, i32> {
         let offset = match self.family() {
             libc::AF_INET if self.length >= size_of::<libc::sockaddr_in>() => {
                 offset_of!(libc::sockaddr_in, sin_port)
@@ -342,7 +342,7 @@ impl SocketAddress {
     }
 }
 
-pub fn sd_is_socket(fd: RawFd, family: c_int, socket_type: c_int, listening: c_int) -> c_int {
+pub fn sd_is_socket(fd: RawFd, family: i32, socket_type: i32, listening: i32) -> i32 {
     if family < 0 {
         return -libc::EINVAL;
     }
@@ -351,7 +351,7 @@ pub fn sd_is_socket(fd: RawFd, family: c_int, socket_type: c_int, listening: c_i
         Err(error) => error,
         Ok(true) if family == 0 => 1,
         Ok(true) => match SocketAddress::query(fd) {
-            Ok(address) => (address.family() == family) as c_int,
+            Ok(address) => (address.family() == family) as i32,
             Err(error) => error,
         },
     }
@@ -359,11 +359,11 @@ pub fn sd_is_socket(fd: RawFd, family: c_int, socket_type: c_int, listening: c_i
 
 pub fn sd_is_socket_inet(
     fd: RawFd,
-    family: c_int,
-    socket_type: c_int,
-    listening: c_int,
+    family: i32,
+    socket_type: i32,
+    listening: i32,
     port: u16,
-) -> c_int {
+) -> i32 {
     if !matches!(family, 0 | libc::AF_INET | libc::AF_INET6) {
         return -libc::EINVAL;
     }
@@ -385,7 +385,7 @@ pub fn sd_is_socket_inet(
         return 1;
     }
     match address.port() {
-        Ok(actual) => (actual == Some(port)) as c_int,
+        Ok(actual) => (actual == Some(port)) as i32,
         Err(error) => error,
     }
 }
@@ -395,27 +395,22 @@ struct UnixPath {
 }
 
 impl UnixPath {
-    fn matches(&self, requested: &[u8]) -> c_int {
+    fn matches(&self, requested: &[u8]) -> i32 {
         if requested.is_empty() {
-            return (self.bytes.is_empty()) as c_int;
+            return (self.bytes.is_empty()) as i32;
         }
         if requested[0] == 0 {
             return (self.bytes.len() == requested.len()
-                && self.bytes.get(..requested.len()) == Some(requested))
-                as c_int;
+                && self.bytes.get(..requested.len()) == Some(requested)) as i32;
         }
         // Filesystem requests include the trailing NUL. The historical API
         // permits a returned address with a longer length than the request.
         (self.bytes.len() >= requested.len()
-            && self.bytes.get(..requested.len()) == Some(requested)) as c_int
+            && self.bytes.get(..requested.len()) == Some(requested)) as i32
     }
 }
 
-fn unix_socket_path(
-    fd: RawFd,
-    socket_type: c_int,
-    listening: c_int,
-) -> Result<Option<UnixPath>, c_int> {
+fn unix_socket_path(fd: RawFd, socket_type: i32, listening: i32) -> Result<Option<UnixPath>, i32> {
     if !socket_matches(fd, socket_type, listening)? {
         return Ok(None);
     }
@@ -432,11 +427,11 @@ fn unix_socket_path(
 /// need `length + 1` readable bytes, as in the original API.
 pub unsafe fn sd_is_socket_unix(
     fd: RawFd,
-    socket_type: c_int,
-    listening: c_int,
+    socket_type: i32,
+    listening: i32,
     path: *const c_char,
     length: usize,
-) -> c_int {
+) -> i32 {
     let address = match unix_socket_path(fd, socket_type, listening) {
         Ok(Some(address)) => address,
         Ok(None) => return 0,
@@ -466,7 +461,7 @@ pub unsafe fn sd_is_socket_unix(
     address.matches(requested)
 }
 
-fn notification_address(endpoint: &[u8]) -> Result<SocketAddr, c_int> {
+fn notification_address(endpoint: &[u8]) -> Result<SocketAddr, i32> {
     if endpoint.len() < 2 || endpoint.len() > 108 || !matches!(endpoint[0], b'@' | b'/') {
         return Err(-libc::EINVAL);
     }
@@ -484,7 +479,7 @@ fn notification_address(endpoint: &[u8]) -> Result<SocketAddr, c_int> {
     }
 }
 
-fn notify_socket(endpoint: &[u8], state: &[u8]) -> c_int {
+fn notify_socket(endpoint: &[u8], state: &[u8]) -> i32 {
     let address = match notification_address(endpoint) {
         Ok(address) => address,
         Err(error) => return error,
@@ -500,7 +495,7 @@ fn notify_socket(endpoint: &[u8], state: &[u8]) -> c_int {
 }
 
 /// Send to the owned NOTIFY_SOCKET value without mutating the environment.
-pub fn notify(state: &CStr) -> c_int {
+pub fn notify(state: &CStr) -> i32 {
     std::env::var_os("NOTIFY_SOCKET").map_or(0, |endpoint| {
         notify_socket(endpoint.as_bytes(), state.to_bytes())
     })
@@ -509,7 +504,7 @@ pub fn notify(state: &CStr) -> c_int {
 /// # Safety
 /// If `unset_environment` is nonzero, no other thread may read or modify the
 /// process environment, including through native libraries.
-pub unsafe fn sd_notify(unset_environment: c_int, state: &CStr) -> c_int {
+pub unsafe fn sd_notify(unset_environment: i32, state: &CStr) -> i32 {
     let Some(endpoint) = std::env::var_os("NOTIFY_SOCKET") else {
         return 0;
     };
@@ -550,12 +545,12 @@ pub unsafe extern "C" fn sd_notifyf(
     unsafe { sd_notify(unset_environment, state) }
 }
 
-pub fn sd_booted() -> c_int {
+pub fn sd_booted() -> i32 {
     match (
         fs::symlink_metadata("/sys/fs/cgroup"),
         fs::symlink_metadata("/sys/fs/cgroup/systemd"),
     ) {
-        (Ok(root), Ok(systemd)) => (root.dev() != systemd.dev()) as c_int,
+        (Ok(root), Ok(systemd)) => (root.dev() != systemd.dev()) as i32,
         _ => 0,
     }
 }
@@ -600,7 +595,7 @@ mod tests {
         for (bytes, expected) in [
             (&b""[..], Ok(0)),
             (&b"  +12"[..], Ok(12)),
-            (&b"-1"[..], Ok(libc::c_ulong::MAX)),
+            (&b"-1"[..], Ok(u64::MAX)),
             (&b"  "[..], Err(-libc::EINVAL)),
             (&b"+"[..], Err(-libc::EINVAL)),
             (&b"12 "[..], Err(-libc::EINVAL)),
@@ -642,7 +637,7 @@ mod tests {
 
     #[test]
     fn environment_number_matches_native_strtoul_for_byte_prefixes_and_overflows() {
-        fn native(bytes: &[u8]) -> Result<libc::c_ulong, c_int> {
+        fn native(bytes: &[u8]) -> Result<u64, i32> {
             let text = std::ffi::CString::new(bytes).unwrap();
             let mut end = std::ptr::null_mut();
             // strtoul's output is confined to its supplied string/end pointer;
