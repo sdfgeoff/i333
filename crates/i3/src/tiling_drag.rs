@@ -274,14 +274,9 @@ unsafe fn create_drop_indicator(rect: Rect) -> x::Window {
 }
 
 pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_threshold: bool) {
-    debuglog(
-        c"%s:%s:%d - Start dragging tiled container: con = %p\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/tiling_drag.c".as_ptr(),
-        c"tiling_drag".as_ptr(),
-        305,
-        con,
+    ::log::debug!(
+        "../src/tiling_drag.c:tiling_drag:305 - Start dragging tiled container: con = {}\n",
+        i3_common::logging::pointer(con)
     );
     let mut set_focus: bool = con == focused;
     let mut set_fs: bool = ((*con).fullscreen_mode) != FullscreenMode::None;
@@ -324,12 +319,7 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
         || target == con && drop_type != DropType::Parent
         || !con_exists(target)
     {
-        debuglog(
-            c"%s:%s:%d - drop aborted\n".as_ptr().cast_mut(),
-            c"../src/tiling_drag.c".as_ptr(),
-            c"tiling_drag".as_ptr(),
-            329,
-        );
+        ::log::debug!("../src/tiling_drag.c:tiling_drag:329 - drop aborted\n");
         return;
     }
     let orientation: Orientation = orientation_from_direction(direction);
@@ -344,12 +334,9 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
     let mut swap_pressed: bool = false;
     match drop_type {
         DropType::Center => {
-            debuglog(
-                c"%s:%s:%d - drop to center of %p\n".as_ptr().cast_mut(),
-                c"../src/tiling_drag.c".as_ptr(),
-                c"tiling_drag".as_ptr(),
-                340,
-                target,
+            ::log::debug!(
+                "../src/tiling_drag.c:tiling_drag:340 - drop to center of {}\n",
+                i3_common::logging::pointer(target)
             );
             mod_0 = config.swap_modifier & 0xffff as u32;
             swap_pressed = mod_0 != 0 as u32
@@ -363,13 +350,10 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
             }
         }
         DropType::Sibling => {
-            debuglog(
-                c"%s:%s:%d - drop %s %p\n".as_ptr().cast_mut(),
-                c"../src/tiling_drag.c".as_ptr(),
-                c"tiling_drag".as_ptr(),
-                352,
-                position_to_string(position),
-                target,
+            ::log::debug!(
+                "../src/tiling_drag.c:tiling_drag:352 - drop {} {}\n",
+                position_name(position),
+                i3_common::logging::pointer(target)
             );
             if con_orientation(parent_ptr(target)) != orientation {
                 if parent_ptr(con) == parent_ptr(target)
@@ -386,19 +370,16 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
         DropType::Parent => {
             let parent_tabbed_or_stacked: bool = (*parent_ptr(target)).layout == Layout::Tabbed
                 || (*parent_ptr(target)).layout == Layout::Stacked;
-            debuglog(
-                c"%s:%s:%d - drop %s (%s) of %s%p\n".as_ptr().cast_mut(),
-                c"../src/tiling_drag.c".as_ptr(),
-                c"tiling_drag".as_ptr(),
-                375,
-                direction_to_string(direction),
-                position_to_string(position),
+            ::log::debug!(
+                "../src/tiling_drag.c:tiling_drag:375 - drop {} ({}) of {}{}\n",
+                direction_name(direction),
+                position_name(position),
                 if parent_tabbed_or_stacked {
-                    c"tabbed/stacked ".as_ptr()
+                    "tabbed/stacked "
                 } else {
-                    c"".as_ptr()
+                    ""
                 },
-                target,
+                i3_common::logging::pointer(target)
             );
             if parent_tabbed_or_stacked {
                 if position == Position::Before {
@@ -421,11 +402,7 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
     if set_focus || set_fs {
         let fs: *mut Con = con_get_fullscreen_covering_ws(con_get_workspace(con));
         if fs == con {
-            errorlog(
-                c"ERROR: dragged container somehow got fullscreen again.\n"
-                    .as_ptr()
-                    .cast_mut(),
-            );
+            ::log::error!("ERROR: dragged container somehow got fullscreen again.\n");
             if 0 != 0 {
             } else {
                 __assert_fail(
@@ -457,20 +434,18 @@ pub unsafe fn tiling_drag(con: *mut Con, event: &x::ButtonPressEvent, use_thresh
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
 use crate::render::render_deco_height;
 use crate::tree::tree_render;
-use crate::util::direction_to_string;
+use crate::util::direction_name;
 use crate::util::max;
 use crate::util::min;
 use crate::util::orientation_from_direction;
 use crate::util::position_from_direction;
-use crate::util::position_to_string;
+use crate::util::position_name;
 use crate::x::x_mask_event_mask;
 use i3_common::dpi::logical_px;
 
 // Canonical Pango backend ABI; font policy remains local.
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::xoutput;

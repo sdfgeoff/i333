@@ -70,26 +70,30 @@ unsafe extern "C" fn startup_timeout(loop_: *mut ev_loop, watcher: *mut ev_timer
     ev_timer_stop(loop_, watcher);
     let timer = Box::from_raw((*watcher).data.cast::<StartupTimer>());
     let id = CStr::from_ptr(sn_launcher_context_get_startup_id(timer.context.raw())).to_owned();
-    debuglog(
-        c"%s:%s:%d - Timeout for startup sequence %s\n"
-            .as_ptr()
-            .cast_mut(),
-        c"../src/startup.c".as_ptr(),
-        c"startup_timeout".as_ptr(),
-        36 as libc::c_int,
-        id.as_ptr(),
-    );
+    {
+        let diagnostic_5_owner = id.clone();
+        let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
+        match (std::str::from_utf8(&diagnostic_5_bytes),) {
+            (Ok(diagnostic_5_text),) => ::log::debug!(
+                "../src/startup.c:startup_timeout:36 - Timeout for startup sequence {}\n",
+                diagnostic_5_text
+            ),
+            _ => emit_parts(
+                Level::Debug,
+                &[
+                    b"../src/startup.c:startup_timeout:36 - Timeout for startup sequence ",
+                    &diagnostic_5_bytes,
+                    b"\n",
+                ],
+            ),
+        }
+    };
     if !find_sequence(&id).is_null() {
         // Keep the timer's reference alive through synchronous completion events.
         sn_launcher_context_complete(timer.context.raw());
     } else {
-        debuglog(
-            c"%s:%s:%d - Sequence already deleted, nevermind.\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/startup.c".as_ptr(),
-            c"startup_timeout".as_ptr(),
-            52 as libc::c_int,
+        ::log::debug!(
+            "../src/startup.c:startup_timeout:52 - Sequence already deleted, nevermind.\n"
         );
     }
 }
@@ -128,17 +132,13 @@ pub unsafe fn startup_sequence_delete(sequence: *mut Startup_Sequence) {
         .position(|item| item.as_ptr() == sequence);
     if let Some(index) = index {
         let sequence = Box::from_raw((*(&raw mut SEQUENCES)).remove(index).as_ptr());
-        debuglog(
-            c"%s:%s:%d - Deleting startup sequence %s, delete_at = %lld, current_time = %lld\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/startup.c".as_ptr(),
-            c"startup_sequence_delete".as_ptr(),
-            108 as libc::c_int,
-            sequence.id.as_ptr(),
-            sequence.delete_at as libc::c_longlong,
-            libc::time(std::ptr::null_mut()) as libc::c_longlong,
-        );
+        {
+            let diagnostic_5_owner = sequence.id.clone();
+            let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
+            let diagnostic_6 = (sequence.delete_at as libc::c_longlong) as i64;
+            let diagnostic_7 = (libc::time(std::ptr::null_mut()) as libc::c_longlong) as i64;
+            match (std::str::from_utf8(&diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!("../src/startup.c:startup_sequence_delete:108 - Deleting startup sequence {}, delete_at = {}, current_time = {}\n", diagnostic_5_text, diagnostic_6, diagnostic_7), _ => emit_parts(Level::Debug, &[b"../src/startup.c:startup_sequence_delete:108 - Deleting startup sequence ", &diagnostic_5_bytes, b", delete_at = ", format!("{}", diagnostic_6).as_bytes(), b", current_time = ", format!("{}", diagnostic_7).as_bytes(), b"\n"]), }
+        };
         drop(sequence);
     }
 }
@@ -192,7 +192,17 @@ pub unsafe fn start_application(command: *const libc::c_char, no_startup_id: boo
             last_timestamp as libc::c_ulong,
         );
         let id = CStr::from_ptr(sn_launcher_context_get_startup_id(launcher.raw())).to_owned();
-        verboselog(c"startup id = %s\n".as_ptr().cast_mut(), id.as_ptr());
+        {
+            let diagnostic_2_owner = id.clone();
+            let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
+            match (std::str::from_utf8(&diagnostic_2_bytes),) {
+                (Ok(diagnostic_2_text),) => ::log::info!("startup id = {}\n", diagnostic_2_text),
+                _ => emit_parts(
+                    Level::Verbose,
+                    &[b"startup id = ", &diagnostic_2_bytes, b"\n"],
+                ),
+            }
+        };
         let workspace = CStr::from_ptr((*con_get_workspace(focused)).name_ptr()).to_owned();
         let sequence = Box::new(Startup_Sequence {
             id,
@@ -209,10 +219,17 @@ pub unsafe fn start_application(command: *const libc::c_char, no_startup_id: boo
         (*(&raw mut SEQUENCES)).push(NonNull::new(Box::into_raw(sequence)).unwrap());
         context = Some(launcher);
     }
-    verboselog(
-        c"executing: %s\n".as_ptr().cast_mut(),
-        prepared.command.as_ptr(),
-    );
+    {
+        let diagnostic_2_owner = prepared.command.clone();
+        let diagnostic_2_bytes = diagnostic_2_owner.as_bytes();
+        match (std::str::from_utf8(&diagnostic_2_bytes),) {
+            (Ok(diagnostic_2_text),) => ::log::info!("executing: {}\n", diagnostic_2_text),
+            _ => emit_parts(
+                Level::Verbose,
+                &[b"executing: ", &diagnostic_2_bytes, b"\n"],
+            ),
+        }
+    };
     // Native descriptor range and context pointer are captured before the fork.
     let fd_end = 3i32.saturating_add(listen_fds);
     let launcher = context
@@ -255,22 +272,34 @@ pub unsafe extern "C" fn startup_monitor_event(event: *mut SnMonitorEvent, _: *m
     let id = CStr::from_ptr(sn_startup_sequence_get_id(native)).to_owned();
     let sequence = find_sequence(&id);
     if sequence.is_null() {
-        debuglog(c"%s:%s:%d - Got event for startup sequence that we did not initiate (ID = %s). Ignoring.\n".as_ptr().cast_mut(),
-            c"../src/startup.c".as_ptr(),c"startup_monitor_event".as_ptr(),237 as libc::c_int,id.as_ptr());
+        {
+            let diagnostic_5_owner = id.clone();
+            let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
+            match (std::str::from_utf8(&diagnostic_5_bytes),) { (Ok(diagnostic_5_text),) => ::log::debug!("../src/startup.c:startup_monitor_event:237 - Got event for startup sequence that we did not initiate (ID = {}). Ignoring.\n", diagnostic_5_text), _ => emit_parts(Level::Debug, &[b"../src/startup.c:startup_monitor_event:237 - Got event for startup sequence that we did not initiate (ID = ", &diagnostic_5_bytes, b"). Ignoring.\n"]), }
+        };
         return;
     }
     if startup_notification_sys::MonitorEventType::from_raw(sn_monitor_event_get_type(event))
         == Some(startup_notification_sys::MonitorEventType::Completed)
     {
-        debuglog(
-            c"%s:%s:%d - startup sequence %s completed\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/startup.c".as_ptr(),
-            c"startup_monitor_event".as_ptr(),
-            243 as libc::c_int,
-            id.as_ptr(),
-        );
+        {
+            let diagnostic_5_owner = id.clone();
+            let diagnostic_5_bytes = diagnostic_5_owner.as_bytes();
+            match (std::str::from_utf8(&diagnostic_5_bytes),) {
+                (Ok(diagnostic_5_text),) => ::log::debug!(
+                    "../src/startup.c:startup_monitor_event:243 - startup sequence {} completed\n",
+                    diagnostic_5_text
+                ),
+                _ => emit_parts(
+                    Level::Debug,
+                    &[
+                        b"../src/startup.c:startup_monitor_event:243 - startup sequence ",
+                        &diagnostic_5_bytes,
+                        b" completed\n",
+                    ],
+                ),
+            }
+        };
         (*sequence).delete_at = libc::time(std::ptr::null_mut()).wrapping_add(30);
         if prune_startup_sequences() == 0 {
             xcursor_set_root_cursor(Cursor::Pointer);
@@ -384,3 +413,5 @@ mod tests {
         assert!(expired(100, 101));
     }
 }
+
+use i3_common::logging::{emit_parts, Level};
