@@ -313,13 +313,12 @@ pub unsafe fn ipc_shutdown(reason: ShutdownReason, exempt_fd: i32) {
 #[derive(Clone, Copy)]
 pub enum CommandReply<'a> {
     Success(bool),
-    Error(&'a CStr),
-    ErrorBytes(&'a [u8]),
+    Error(&'a [u8]),
     WithId(i64),
     ParseError {
-        error: &'a CStr,
-        input: &'a CStr,
-        position: &'a CStr,
+        error: &'a [u8],
+        input: &'a [u8],
+        position: &'a [u8],
     },
 }
 #[derive(Clone, Copy)]
@@ -341,16 +340,13 @@ impl serde::Serialize for ReplyField<'_> {
 impl CommandReply<'_> {
     fn fields(&self) -> Vec<(&'static str, ReplyField<'_>)> {
         use ReplyField::*;
+        // Preserve the native first-NUL text boundary for all byte inputs.
+        fn text(bytes: &[u8]) -> ReplyField<'_> {
+            Text(bytes.split(|&byte| byte == 0).next().unwrap())
+        }
         match self {
             Self::Success(value) => vec![("success", Bool(*value))],
-            Self::Error(error) => vec![("success", Bool(false)), ("error", Text(error.to_bytes()))],
-            Self::ErrorBytes(error) => vec![
-                ("success", Bool(false)),
-                (
-                    "error",
-                    Text(error.split(|&byte| byte == 0).next().unwrap()),
-                ),
-            ],
+            Self::Error(error) => vec![("success", Bool(false)), ("error", text(error))],
             Self::WithId(id) => vec![("success", Bool(true)), ("id", Integer(*id))],
             Self::ParseError {
                 error,
@@ -359,9 +355,9 @@ impl CommandReply<'_> {
             } => vec![
                 ("success", Bool(false)),
                 ("parse_error", Bool(true)),
-                ("error", Text(error.to_bytes())),
-                ("input", Text(input.to_bytes())),
-                ("errorposition", Text(position.to_bytes())),
+                ("error", text(error)),
+                ("input", text(input)),
+                ("errorposition", text(position)),
             ],
         }
     }
@@ -2226,41 +2222,49 @@ mod typed_reply_tests {
         let reply = stream(&[
             CommandReply::Success(true),
             CommandReply::Success(false),
-            CommandReply::Error(c"quoted \"value\"\n雪"),
+            CommandReply::Error("quoted \"value\"\n雪".as_bytes()),
             CommandReply::WithId(-1),
             CommandReply::ParseError {
-                error: c"bad",
-                input: c"input",
-                position: c"  ^^^",
+                error: b"bad",
+                input: b"input",
+                position: b"  ^^^",
             },
         ]);
         assert_eq!(reply, "[{\"success\":true},{\"success\":false},{\"success\":false,\"error\":\"quoted \\\"value\\\"\\n雪\"},{\"success\":true,\"id\":-1},{\"success\":false,\"parse_error\":true,\"error\":\"bad\",\"input\":\"input\",\"errorposition\":\"  ^^^\"}]".as_bytes());
     }
     #[test]
     fn invalid_native_strings_preserve_rejected_value_and_partial_stream() {
-        let invalid = c"\xff";
+        let invalid = b"\xff".as_slice();
         assert_eq!(
             stream(&[
-                CommandReply::ErrorBytes(b"\xff\0ignored"),
+                CommandReply::Error(b"\xff\0ignored"),
                 CommandReply::Success(true)
             ]),
             stream(&[CommandReply::Error(invalid), CommandReply::Success(true)]),
         );
         assert_eq!(
-            stream(&[CommandReply::ErrorBytes(b"quoted \"value\"\n\0ignored")]),
-            stream(&[CommandReply::Error(c"quoted \"value\"\n")]),
+            stream(&[CommandReply::Error(b"quoted \"value\"\n\0ignored")]),
+            stream(&[CommandReply::Error(b"quoted \"value\"\n")]),
         );
         assert_eq!(
             stream(&[CommandReply::Error(invalid), CommandReply::Success(true)]),
             br#"[{"success":false,"error""#
         );
+        assert_eq!(
+            stream(&[CommandReply::ParseError {
+                error: b"bad\0\xff",
+                input: b"input\0ignored",
+                position: b"  ^^^\0ignored",
+            }]),
+            br#"[{"success":false,"parse_error":true,"error":"bad","input":"input","errorposition":"  ^^^"}]"#,
+        );
         // Rejected input consumes no value: the next key becomes its value,
         // exactly as before; the following text becomes an unmatched key.
         assert_eq!(
             stream(&[CommandReply::ParseError {
-                error: c"bad",
+                error: b"bad",
                 input: invalid,
-                position: c"^^"
+                position: b"^^"
             }]),
             br#"[{"success":false,"parse_error":true,"error":"bad","input":"errorposition","^^""#
         );

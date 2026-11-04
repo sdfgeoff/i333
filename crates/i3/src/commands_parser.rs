@@ -4229,9 +4229,9 @@ pub unsafe fn parse_command(
         emit_command_reply(
             &raw mut cmd_ctx.command_output,
             CommandReply::ParseError {
-                error: std::ffi::CStr::from_ptr(errormessage),
-                input: std::ffi::CStr::from_ptr(input),
-                position: std::ffi::CStr::from_ptr(position),
+                error: message.as_bytes(),
+                input: &input_owner[..len],
+                position: caret.as_bytes(),
             },
         );
         result.error_message = Some(message.into_bytes());

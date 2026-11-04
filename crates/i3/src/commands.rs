@@ -377,7 +377,7 @@ pub unsafe fn cmd_move_con_to_workspace(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -414,7 +414,7 @@ pub unsafe fn cmd_move_con_to_workspace(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -449,7 +449,7 @@ pub unsafe fn cmd_move_con_to_workspace(
                 );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
                 );
                 free(message_1 as *mut ::core::ffi::c_void);
             }
@@ -478,7 +478,7 @@ pub unsafe fn cmd_move_con_to_workspace(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
             );
             free(message_2 as *mut ::core::ffi::c_void);
         }
@@ -506,7 +506,7 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -523,7 +523,7 @@ pub unsafe fn cmd_move_con_to_workspace_back_and_forth(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -574,7 +574,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -591,7 +591,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -628,7 +628,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
             );
             free(message_1 as *mut ::core::ffi::c_void);
         }
@@ -663,7 +663,7 @@ pub unsafe fn cmd_move_con_to_workspace_name(
                 );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
                 );
                 free(message_2 as *mut ::core::ffi::c_void);
             }
@@ -724,7 +724,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -761,7 +761,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -796,7 +796,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
                 );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
                 );
                 free(message_1 as *mut ::core::ffi::c_void);
             }
@@ -871,7 +871,7 @@ pub unsafe fn cmd_move_con_to_workspace_number(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
             );
             free(message_2 as *mut ::core::ffi::c_void);
         }
@@ -1007,7 +1007,7 @@ unsafe fn cmd_resize_tiling_direction(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -1045,7 +1045,7 @@ unsafe fn cmd_resize_tiling_width_height(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -1123,7 +1123,7 @@ unsafe fn cmd_resize_tiling_width_height(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -1182,7 +1182,7 @@ unsafe fn cmd_resize_tiling_width_height(
                         );
                     emit_command_reply(
                         cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
                     );
                     free(message_1 as *mut ::core::ffi::c_void);
                 }
@@ -1312,7 +1312,7 @@ pub unsafe fn cmd_resize(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -1373,7 +1373,7 @@ pub unsafe fn cmd_resize(
                         sasprintf(&raw mut message_0, c"Cannot resize.".as_ptr());
                         emit_command_reply(
                             cmd_output,
-                            CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                            CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
                         );
                         free(message_0 as *mut ::core::ffi::c_void);
                     }
@@ -1393,7 +1393,7 @@ pub unsafe fn cmd_resize(
                     sasprintf(&raw mut message_1, c"Cannot resize.".as_ptr());
                     emit_command_reply(
                         cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
                     );
                     free(message_1 as *mut ::core::ffi::c_void);
                 }
@@ -1510,7 +1510,7 @@ pub unsafe fn cmd_resize_set(
             sasprintf(&raw mut message, c"Dimensions cannot be negative.".as_ptr());
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -1527,7 +1527,7 @@ pub unsafe fn cmd_resize_set(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -1685,7 +1685,7 @@ pub unsafe fn cmd_border(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -1769,7 +1769,7 @@ pub unsafe fn cmd_border(
                 );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
                 );
                 free(message_0 as *mut ::core::ffi::c_void);
             }
@@ -1866,7 +1866,7 @@ pub unsafe fn cmd_append_layout(
                 sasprintf(&raw mut message, c"Could not slurp \"%s\".".as_ptr(), path);
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
                 );
                 free(message as *mut ::core::ffi::c_void);
             }
@@ -1917,7 +1917,7 @@ pub unsafe fn cmd_append_layout(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -1964,7 +1964,7 @@ pub unsafe fn cmd_append_layout(
                 );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
                 );
                 free(message_1 as *mut ::core::ffi::c_void);
             }
@@ -1988,7 +1988,7 @@ pub unsafe fn cmd_append_layout(
                     sasprintf(&raw mut message_2, c"%s".as_ptr(), errormsg);
                     emit_command_reply(
                         cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
                     );
                     free(message_2 as *mut ::core::ffi::c_void);
                 }
@@ -2071,7 +2071,7 @@ pub unsafe fn cmd_workspace(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -2105,7 +2105,7 @@ pub unsafe fn cmd_workspace_number(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -2168,7 +2168,7 @@ pub unsafe fn cmd_workspace_name(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -2236,7 +2236,7 @@ pub unsafe fn cmd_mark(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -2274,7 +2274,7 @@ pub unsafe fn cmd_mark(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -2293,7 +2293,7 @@ pub unsafe fn cmd_mark(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
             );
             free(message_1 as *mut ::core::ffi::c_void);
         }
@@ -2483,7 +2483,7 @@ pub unsafe fn cmd_move_con_to_output(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -2524,7 +2524,7 @@ pub unsafe fn cmd_move_con_to_output(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -2561,7 +2561,7 @@ pub unsafe fn cmd_move_con_to_output(
         sasprintf(&raw mut message_1, c"No output matched".as_ptr());
         emit_command_reply(
             cmd_output,
-            CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+            CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
         );
         free(message_1 as *mut ::core::ffi::c_void);
     }
@@ -2613,7 +2613,7 @@ pub unsafe fn cmd_move_con_to_mark(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -2741,7 +2741,7 @@ pub unsafe fn cmd_floating(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -2871,7 +2871,7 @@ pub unsafe fn cmd_split(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -3039,7 +3039,7 @@ pub unsafe fn cmd_kill(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -3056,7 +3056,7 @@ pub unsafe fn cmd_kill(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -3113,7 +3113,7 @@ pub unsafe fn cmd_exec(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -3215,7 +3215,7 @@ pub unsafe fn cmd_focus_direction(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -3298,7 +3298,7 @@ pub unsafe fn cmd_focus_sibling(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -3439,7 +3439,7 @@ pub unsafe fn cmd_focus_window_mode(
         );
         emit_command_reply(
             cmd_output,
-            CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+            CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
         );
         free(message as *mut ::core::ffi::c_void);
     }
@@ -3518,7 +3518,7 @@ pub unsafe fn cmd_focus(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -3533,7 +3533,7 @@ pub unsafe fn cmd_focus(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -3718,7 +3718,7 @@ pub unsafe fn cmd_fullscreen(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -3842,7 +3842,7 @@ pub unsafe fn cmd_sticky(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -3938,7 +3938,7 @@ pub unsafe fn cmd_move_direction(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -4107,7 +4107,7 @@ pub unsafe fn cmd_layout(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -4145,7 +4145,7 @@ pub unsafe fn cmd_layout(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -4425,7 +4425,7 @@ pub unsafe fn cmd_focus_output(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -4442,7 +4442,7 @@ pub unsafe fn cmd_focus_output(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -4518,7 +4518,7 @@ pub unsafe fn cmd_focus_output(
                 );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
                 );
                 free(message_1 as *mut ::core::ffi::c_void);
             }
@@ -4537,7 +4537,7 @@ pub unsafe fn cmd_focus_output(
         sasprintf(&raw mut message_2, c"No output matched".as_ptr());
         emit_command_reply(
             cmd_output,
-            CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+            CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
         );
         free(message_2 as *mut ::core::ffi::c_void);
     }
@@ -4564,7 +4564,7 @@ pub unsafe fn cmd_move_window_to_position(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -4606,7 +4606,7 @@ pub unsafe fn cmd_move_window_to_position(
                     );
                     emit_command_reply(
                         cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
                     );
                     free(message_0 as *mut ::core::ffi::c_void);
                 }
@@ -4670,7 +4670,7 @@ pub unsafe fn cmd_move_window_to_position(
                     );
                     emit_command_reply(
                         cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
                     );
                     free(message_1 as *mut ::core::ffi::c_void);
                 }
@@ -4701,7 +4701,7 @@ pub unsafe fn cmd_move_window_to_center(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -4775,7 +4775,7 @@ pub unsafe fn cmd_move_window_to_center(
                     );
                     emit_command_reply(
                         cmd_output,
-                        CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                        CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
                     );
                     free(message_0 as *mut ::core::ffi::c_void);
                 }
@@ -4821,7 +4821,7 @@ pub unsafe fn cmd_move_window_to_mouse(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -4931,7 +4931,7 @@ pub unsafe fn cmd_move_scratchpad(current_match: *mut Match, cmd_output: *mut Co
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -5075,7 +5075,7 @@ pub unsafe fn cmd_swap(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -5110,7 +5110,7 @@ pub unsafe fn cmd_swap(
             sasprintf(&raw mut message_0, c"No match found for swapping.".as_ptr());
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -5127,7 +5127,7 @@ pub unsafe fn cmd_swap(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
             );
             free(message_1 as *mut ::core::ffi::c_void);
         }
@@ -5146,7 +5146,7 @@ pub unsafe fn cmd_swap(
                 );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_2)),
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_2).to_bytes()),
                 );
                 free(message_2 as *mut ::core::ffi::c_void);
             }
@@ -5165,7 +5165,7 @@ pub unsafe fn cmd_swap(
                 );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message_3)),
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message_3).to_bytes()),
                 );
                 free(message_3 as *mut ::core::ffi::c_void);
             }
@@ -5185,7 +5185,7 @@ pub unsafe fn cmd_swap(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_4)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_4).to_bytes()),
             );
             free(message_4 as *mut ::core::ffi::c_void);
         }
@@ -5203,7 +5203,7 @@ pub unsafe fn cmd_swap(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_5)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_5).to_bytes()),
             );
             free(message_5 as *mut ::core::ffi::c_void);
         }
@@ -5260,7 +5260,7 @@ pub unsafe fn cmd_title_format(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -5374,7 +5374,7 @@ pub unsafe fn cmd_title_window_icon(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -5478,7 +5478,7 @@ pub unsafe fn cmd_rename_workspace(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
             );
             free(message as *mut ::core::ffi::c_void);
         }
@@ -5580,7 +5580,7 @@ pub unsafe fn cmd_rename_workspace(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_0)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_0).to_bytes()),
             );
             free(message_0 as *mut ::core::ffi::c_void);
         }
@@ -5598,7 +5598,7 @@ pub unsafe fn cmd_rename_workspace(
             );
             emit_command_reply(
                 cmd_output,
-                CommandReply::Error(std::ffi::CStr::from_ptr(message_1)),
+                CommandReply::Error(std::ffi::CStr::from_ptr(message_1).to_bytes()),
             );
             free(message_1 as *mut ::core::ffi::c_void);
         }
@@ -5713,7 +5713,7 @@ pub unsafe fn cmd_bar_mode(
     }
     if barconfigs.tqh_first.is_null() {
         if (*cmd_output).has_reply() {
-            emit_command_reply(cmd_output, CommandReply::ErrorBytes(b"No bars found\n"));
+            emit_command_reply(cmd_output, CommandReply::Error(b"No bars found\n"));
         }
         return;
     }
@@ -5767,7 +5767,7 @@ pub unsafe fn cmd_bar_mode(
             let mut message = b"Changing bar mode of bar_id ".to_vec();
             message.extend_from_slice(bar_id);
             message.extend_from_slice(b" failed, bar_id not found.\n");
-            emit_command_reply(cmd_output, CommandReply::ErrorBytes(&message));
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
     } else if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
@@ -5820,7 +5820,7 @@ pub unsafe fn cmd_bar_hidden_state(
     }
     if barconfigs.tqh_first.is_null() {
         if (*cmd_output).has_reply() {
-            emit_command_reply(cmd_output, CommandReply::ErrorBytes(b"No bars found\n"));
+            emit_command_reply(cmd_output, CommandReply::Error(b"No bars found\n"));
         }
         return;
     }
@@ -5864,7 +5864,7 @@ pub unsafe fn cmd_bar_hidden_state(
             let mut message = b"Changing bar hidden_state of bar_id ".to_vec();
             message.extend_from_slice(bar_id);
             message.extend_from_slice(b" failed, bar_id not found.\n");
-            emit_command_reply(cmd_output, CommandReply::ErrorBytes(&message));
+            emit_command_reply(cmd_output, CommandReply::Error(&message));
         }
     } else if (*cmd_output).has_reply() {
         emit_command_reply(cmd_output, CommandReply::Success(true));
@@ -5898,7 +5898,7 @@ pub unsafe fn cmd_shmlog(
                 );
                 emit_command_reply(
                     cmd_output,
-                    CommandReply::Error(std::ffi::CStr::from_ptr(message)),
+                    CommandReply::Error(std::ffi::CStr::from_ptr(message).to_bytes()),
                 );
                 free(message as *mut ::core::ffi::c_void);
             }
