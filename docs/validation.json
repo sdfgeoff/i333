@@ -8,19 +8,19 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 22 wallclock secs ( 0.71 usr +  0.08 sys =  0.79 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 31 wallclock secs ( 0.83 usr +  0.09 sys =  0.92 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "bef84d729487b1b61c4d100e1b992bdf34d9966e0aab38342dc6d8f28fea04c9",
-    "i3bar": "ba044892bbdfc161ea61076fac983d64252a5e7e6fa12e185f94d6d8f7535e25",
-    "i3-config-wizard": "d628b21650ff0bffeb0e11931a91b824a60806d3bd10345ad22d1a042f6afa2f",
-    "i3-dump-log": "24a3c81f64bae4aeaef98582102f2f42f51d6df3f6965e382d49107709a5fc2d",
-    "i3-input": "723028213f5055189567613ec3f5aca460704ae358e6be611c8b5d806855ab82",
-    "i3-msg": "0eceddafd97aa96dd8ce838609ca1af2eb7b1137cb04ca79a2e75763a171cce1",
-    "i3-nagbar": "788ae4de0ab1439e4403462b1556688ab8f73e171d95ab7d6133c06e32b2682b"
+    "i3": "8894ab9498ac0caafa8ef40aa7ceb4ee6705cc832deca687ce9fe148278a8d2d",
+    "i3bar": "b6407000703532cf80741a558e8d82819fc97650964886994c93ca0794d0f37e",
+    "i3-config-wizard": "4a2fd2f63d1ad7446600afa8b6acdda5100fd1284b017ef8d1b33cc7a2ded1ef",
+    "i3-dump-log": "96a5563865bbef56ca17a0e7d16ac4c3cbefd2edd3f40fb57c543093280c1a0b",
+    "i3-input": "d13dff89afeb9206dc413d833a2d091503561b2c102e89deceefe29398839a78",
+    "i3-msg": "b264ca7d57c22761713c105cc7265c15be9631fe42c1afcf5d277b69b536792b",
+    "i3-nagbar": "e8ea8cdb512ad473bcbc9c5759d36756f12bef42fa54164dd5059aceaed1a5dd"
   },
   "note": "Nine-member Cargo workspace. cargo test --locked passed 440 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
@@ -2671,6 +2671,25 @@
         "scope": "150 tracked Rust files, including tests; comments and string literals excluded"
       },
       "behavior": "No pointer/FFI safety contracts changed; compiler-confirmed redundant scopes and the safe logging helper annotation removed."
+    },
+    "clippy_cast_borrow_and_comparison_cleanup": {
+      "status": "validated",
+      "source_commit": "59cfb7df9b82b4c404e46bad6fad3ebe48dbd4aa",
+      "implemented_by": "subagent; independently reviewed and tested on main",
+      "baseline_unique_findings_resolved": {
+        "eq_op": 11,
+        "unnecessary_cast": 1042,
+        "needless_borrow": 159
+      },
+      "self_comparisons": "Seven expanded child-debug logging conditions simplified preserving PID-zero and status-before-workspace precedence; four expanded assert(false) conditions call the same native __assert_fail with unchanged arguments.",
+      "casts_and_borrows": "Same-type casts and needless borrows removed; typed literals retain widths, necessary sign/width/ABI conversions remain, raw-pointer pointee types and mutability unchanged, log macro rvalue blocks preserve value copies before callback dispatch.",
+      "clippy_command": "cargo clippy --workspace --all-targets -- -D clippy::eq_op -D clippy::unnecessary_cast -D clippy::needless_borrow",
+      "requested_lint_diagnostics": 0,
+      "other_lints": "Other Clippy warnings remain outside this cleanup; no new suppressions introduced.",
+      "worker_unit_tests": 422,
+      "full_rust_tests": 440,
+      "upstream_assertions": 4205,
+      "installed_binary_or_current_desktop_changed": false
     }
   },
   "ci_dependency_preparation": {
