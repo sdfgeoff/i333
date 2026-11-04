@@ -226,7 +226,7 @@ fn load_pango_font(context: &FontContext, desc: &[u8]) -> Option<(i32, PangoFont
             let family = if family.is_null() {
                 None
             } else {
-                Some(unsafe { CStr::from_ptr(family) })
+                Some(unsafe { CStr::from_ptr(family) }.to_bytes())
             };
             crate::logging::string_bytes(family, None)
         })

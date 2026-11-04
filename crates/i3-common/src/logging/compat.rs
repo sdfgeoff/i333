@@ -1,7 +1,6 @@
 //! Narrow printf presentation rules retained by converted diagnostic callsites.
 #![cfg_attr(not(test), deny(unsafe_code))]
 
-use std::ffi::CStr;
 use std::fmt;
 
 /// Snapshot a pointer's address without borrowing or dereferencing its pointee.
@@ -22,11 +21,16 @@ impl fmt::Display for Pointer {
 }
 
 /// Bytes selected by `%s`/`%.*s`, including glibc's null-string precision rule.
-/// Precision counts bytes; `CStr` has already bounded the first NUL. Callers
+/// Precision counts bytes and the first NUL ends the presented string. Callers
 /// snapshot these bytes before dispatch if a callback may release their owner.
-pub fn string_bytes(value: Option<&CStr>, precision: Option<usize>) -> &[u8] {
+pub fn string_bytes(value: Option<&[u8]>, precision: Option<usize>) -> &[u8] {
     let bytes = match value {
-        Some(value) => value.to_bytes(),
+        Some(value) => {
+            &value[..value
+                .iter()
+                .position(|&byte| byte == 0)
+                .unwrap_or(value.len())]
+        }
         None if precision.is_some_and(|precision| precision < 6) => b"",
         None => b"(null)",
     };
@@ -36,6 +40,7 @@ pub fn string_bytes(value: Option<&CStr>, precision: Option<usize>) -> &[u8] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::CStr;
 
     #[test]
     fn pointer_display_matches_native_plain_pointer_for_null_and_addresses() {
@@ -61,6 +66,11 @@ mod tests {
     #[test]
     fn string_precision_matches_native_null_binary_and_multibyte_strings() {
         for value in [None, Some(c""), Some(c"a\xffbcdef"), Some(c"éclair")] {
+            let bounded = value.map(|value| {
+                let mut bytes = value.to_bytes_with_nul().to_vec();
+                bytes.extend_from_slice(b"ignored\xff");
+                bytes
+            });
             for precision in 0..10 {
                 let mut output = [0u8; 64];
                 let pointer = value.map_or(std::ptr::null(), CStr::as_ptr);
@@ -75,7 +85,11 @@ mod tests {
                 };
                 assert!(count >= 0 && (count as usize) < output.len());
                 assert_eq!(
-                    string_bytes(value, Some(precision)),
+                    string_bytes(value.map(CStr::to_bytes), Some(precision)),
+                    &output[..count as usize]
+                );
+                assert_eq!(
+                    string_bytes(bounded.as_deref(), Some(precision)),
                     &output[..count as usize]
                 );
             }
@@ -89,7 +103,14 @@ mod tests {
                     pointer,
                 )
             };
-            assert_eq!(string_bytes(value, None), &output[..count as usize]);
+            assert_eq!(
+                string_bytes(value.map(CStr::to_bytes), None),
+                &output[..count as usize]
+            );
+            assert_eq!(
+                string_bytes(bounded.as_deref(), None),
+                &output[..count as usize]
+            );
         }
     }
 }
