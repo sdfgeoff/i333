@@ -8,19 +8,19 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.63 usr +  0.06 sys =  0.69 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 25 wallclock secs ( 0.79 usr +  0.09 sys =  0.88 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "8e7c0b69a1df9527d0ad6621cb6defed034febbda6df3306f816f217c602cb0c",
-    "i3bar": "148d9915a3e47b694e962d793b0aa1d4ea38f473c452a70608cea9574ad57df4",
-    "i3-config-wizard": "bb3cd4fcae931cbe9680ea2bdb0b97528811ac1af5e0f23156b8e3f9d1f5c7c2",
-    "i3-dump-log": "11bafab63c9d40c958dfadf00ddf212e63c442aefc66cf6780f35cc9eec70fad",
-    "i3-input": "512a02c9fb63cc9598308feaecece899fc560dffdcfe791fe1e0c418d59e8a7a",
-    "i3-msg": "f3049ffcbb4af62a7f2618d2ea226bf2318e89cd2d139fe788f5152de2742396",
-    "i3-nagbar": "17c7f1710ac45cfbf854c4775727862af8ea5b4dce22d11a2e7da46441548749"
+    "i3": "b879888876a5ffe8fb5d98d2705837cca90e92c63391108a53e0a3624458abf4",
+    "i3bar": "0805a432a07018df1041975b3196928a20a60bdc999e4ca270e3deedbf760e28",
+    "i3-config-wizard": "851bd924723e9681c8d6b7a7476f084e6345114cb3aa23ae8d8bbb89a9098f3e",
+    "i3-dump-log": "9165db548b0a6cf3bb0f827ee725ef1fbc4ef115ab23e81f67d94534b3c9f350",
+    "i3-input": "8b27aae6271cb7d469e0a3a15d112f2332bc032b9da6c3eb9fcd71eee1562e73",
+    "i3-msg": "9904fcd3411f73eb3f99b0ba3cb7bdf3012ccd2e85084b3b7aa31408349afeba",
+    "i3-nagbar": "3cf7bf5bb3fe9e540fb2916c5b27ab526b21b2db386b65b0e1ebc60a5777529f"
   },
   "note": "Nine-member Cargo workspace. cargo test --locked passed 451 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
@@ -2853,6 +2853,14 @@
           "stage": 8,
           "source_commit": "d5c842c6b4bbec0f333952ece684293355e0ea62",
           "scope": "Rust-native rendering checkpoint: I3String owns repaired String and forbids unsafe; public text/font/visible-name/title APIs use Rust strings/bytes and Result views, with native CString temporaries only at actual backend calls. Core, bar and tool callers migrated atomically.",
+          "rust_tests": 451,
+          "upstream_assertions": 4205,
+          "status": "validated"
+        },
+        {
+          "stage": 8,
+          "source_commit": "91dea878f1732f40c49104b9100da76c8751f183",
+          "scope": "Rust-native application models: process commands, parser variables, configured terminal/output specs and bar configuration/output/workspace names use bytes; included paths use PathBuf and expanded file text uses Vec. Intrusive bar head ownership derives aliases only after raw allocation ownership.",
           "rust_tests": 451,
           "upstream_assertions": 4205,
           "status": "validated"
