@@ -104,6 +104,14 @@ impl Default for status_block {
         }
     }
 }
+impl status_block {
+    fn minimum_width_text(&self) -> Option<I3String> {
+        // This field formerly entered through from_cstr: unlike full/short text,
+        // its measured length is the repaired UTF-8 length, not input byte count.
+        self.min_width_str.as_deref().map(I3String::from_bytes)
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct StatusBlockLinks {
@@ -637,8 +645,7 @@ unsafe fn install_status_frame(frame: Vec<StatusValue>) {
         (*block).border_bottom = value.borders[2];
         (*block).border_left = value.borders[3];
         (*block).pango_markup = value.markup;
-        if let Some(bytes) = (*block).min_width_str.as_deref() {
-            let text = I3String::from_bytes_with_legacy_length(bytes);
+        if let Some(text) = (*block).minimum_width_text() {
             text.set_markup(value.markup);
             (*block).min_width = predict_text_width(&crate::xcb::font, &text) as u32;
         }
@@ -1869,6 +1876,14 @@ mod owned_tests {
                     Some(b"".as_slice())
                 );
                 assert!((*head.tqh_first).border.is_none());
+                let minimum = (*head.tqh_first).minimum_width_text().unwrap();
+                let native_view = I3String::from_cstr(c"width-\xff");
+                assert_eq!(minimum.as_cstr(), native_view.as_cstr());
+                assert_eq!(
+                    minimum.rendering_byte_len(),
+                    native_view.rendering_byte_len()
+                );
+                assert_eq!(minimum.rendering_byte_len(), 9);
                 clear_statusline(&raw mut *head);
             }
             let mut clicks = ClickStream::default();
