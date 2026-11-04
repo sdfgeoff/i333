@@ -136,7 +136,6 @@ pub struct i3bar_child {
     pub stdin_io: *mut ev_io,
     pub child_sig: *mut ev_child,
     pub stdin_fd: i32,
-    pub pending_line: *mut ::core::ffi::c_char,
 }
 
 pub use crate::workspaces::Workspace as i3_ws;
@@ -158,14 +157,12 @@ pub struct tc_head {
     pub tqh_first: *mut trayclient,
     pub tqh_last: *mut *mut trayclient,
 }
-#[derive(Copy, Clone)]
-#[repr(C)]
 pub struct trayclient {
     pub win: u32,
     pub mapped: bool,
     pub xe_version: i32,
-    pub class_class: *mut ::core::ffi::c_char,
-    pub class_instance: *mut ::core::ffi::c_char,
+    pub class_class: Option<Vec<u8>>,
+    pub class_instance: Option<Vec<u8>>,
     pub tailq: TrayClientLinks,
 }
 #[derive(Copy, Clone)]
@@ -199,7 +196,6 @@ pub static mut status_child: i3bar_child = i3bar_child {
     stdin_io: std::ptr::null_mut::<ev_io>(),
     child_sig: std::ptr::null_mut::<ev_child>(),
     stdin_fd: 0,
-    pending_line: std::ptr::null_mut::<::core::ffi::c_char>(),
 };
 
 pub static mut ws_child: i3bar_child = i3bar_child {
@@ -213,7 +209,6 @@ pub static mut ws_child: i3bar_child = i3bar_child {
     stdin_io: std::ptr::null_mut::<ev_io>(),
     child_sig: std::ptr::null_mut::<ev_child>(),
     stdin_fd: 0,
-    pending_line: std::ptr::null_mut::<::core::ffi::c_char>(),
 };
 
 pub static mut statusline_head: statusline_head = statusline_head {
@@ -343,8 +338,6 @@ unsafe fn cleanup(c: *mut i3bar_child) {
     if c == &raw mut ws_child {
         WORKSPACE_LINES.with(|state| state.borrow_mut().pending = None);
     }
-    free((*c).pending_line as *mut ::core::ffi::c_void);
-    (*c).pending_line = ::core::ptr::null_mut::<::core::ffi::c_char>();
     if c == &raw mut status_child {
         STATUS_PARSER.with(|parser| *parser.borrow_mut() = None);
         CLICK_STREAM.with(|generator| *generator.borrow_mut() = ClickStream::default());

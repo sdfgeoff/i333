@@ -331,9 +331,7 @@ pub unsafe fn free_outputs() {
             (*head).tqh_last = &raw mut (*head).tqh_first;
             while !client.is_null() {
                 let next = (*client).tailq.tqe_next;
-                libc::free((*client).class_class.cast());
-                libc::free((*client).class_instance.cast());
-                libc::free(client.cast());
+                drop(Box::from_raw(client));
                 client = next;
             }
         }

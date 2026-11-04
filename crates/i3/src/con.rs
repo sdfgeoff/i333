@@ -160,13 +160,25 @@ unsafe fn _con_attach(con: *mut Con, parent: *mut Con, previous: *mut Con, ignor
             .unwrap_or(std::ptr::null_mut());
         while !loop_0.is_null() {
             let mut result: i32 = strcasecmp_nullable(
-                (*(*con).window).class_class_ptr(),
-                (*(*loop_0).window).class_class_ptr(),
+                (*(*con).window)
+                    .class_class
+                    .as_deref()
+                    .map(std::ffi::CStr::to_bytes),
+                (*(*loop_0).window)
+                    .class_class
+                    .as_deref()
+                    .map(std::ffi::CStr::to_bytes),
             );
             if result == 0_i32 {
                 result = strcasecmp_nullable(
-                    (*(*con).window).class_instance_ptr(),
-                    (*(*loop_0).window).class_instance_ptr(),
+                    (*(*con).window)
+                        .class_instance
+                        .as_deref()
+                        .map(std::ffi::CStr::to_bytes),
+                    (*(*loop_0).window)
+                        .class_instance
+                        .as_deref()
+                        .map(std::ffi::CStr::to_bytes),
                 );
             }
             if result < 0_i32 {

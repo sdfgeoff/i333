@@ -13,7 +13,7 @@ use i3_common::draw_util::draw_util_surface_init;
 use i3_common::draw_util::draw_util_text;
 use i3_common::font::load_font;
 use i3_common::font::predict_text_width;
-use i3_common::safewrappers::sstrdup;
+use i3_common::safewrappers::strcasecmp_nullable;
 use std::ffi::CStr;
 use xcb_interop::events;
 /*
@@ -1230,17 +1230,28 @@ unsafe fn handle_visibility_notify(event: &x::VisibilityNotifyEvent) {
         cont_children();
     };
 }
+fn native_class(bytes: &[u8]) -> std::ffi::CString {
+    let end = bytes
+        .iter()
+        .position(|&byte| byte == 0)
+        .unwrap_or(bytes.len());
+    std::ffi::CString::new(&bytes[..end]).expect("first-NUL class prefix")
+}
+
 unsafe extern "C" fn reorder_trayclients_cmp(
     mut _a: *const ::core::ffi::c_void,
     mut _b: *const ::core::ffi::c_void,
 ) -> ::core::ffi::c_int {
     let a: *mut trayclient = *(_a as *mut *mut trayclient);
     let b: *mut trayclient = *(_b as *mut *mut trayclient);
-    let result: i32 = strcasecmp_nullable((*a).class_class, (*b).class_class);
+    let result: i32 = strcasecmp_nullable((*a).class_class.as_deref(), (*b).class_class.as_deref());
     if result != 0_i32 {
         result
     } else {
-        strcasecmp_nullable((*a).class_instance, (*b).class_instance)
+        strcasecmp_nullable(
+            (*a).class_instance.as_deref(),
+            (*b).class_instance.as_deref(),
+        )
     }
 }
 unsafe fn configure_trayclients() {
@@ -1351,21 +1362,24 @@ unsafe fn trayclient_update_class(client: *mut trayclient) {
         return;
     };
     let (instance, class) = class_parts(bytes);
-    let instance = std::ffi::CString::new(instance).unwrap();
-    let class = class.map(|bytes| std::ffi::CString::new(bytes).unwrap());
-    free((*client).class_instance.cast());
-    free((*client).class_class.cast());
-    (*client).class_instance = sstrdup(instance.as_ptr());
-    (*client).class_class = class
-        .as_ref()
-        .map_or(std::ptr::null_mut(), |class| sstrdup(class.as_ptr()));
-    if config.verbose {
+    let instance = instance.to_vec();
+    let class = class.map(<[u8]>::to_vec);
+    // Native diagnostics receive independent local strings, never model borrows
+    // that a callback could invalidate during dispatch.
+    let native = config
+        .verbose
+        .then(|| (native_class(&instance), class.as_deref().map(native_class)));
+    (*client).class_instance = Some(instance);
+    (*client).class_class = class;
+    if let Some((instance, class)) = native {
         printf(
             c"[%s:%d] WM_CLASS changed to %s (instance), %s (class)\n".as_ptr(),
             c"../i3bar/src/xcb.c".as_ptr(),
             888 as ::core::ffi::c_int,
-            (*client).class_instance,
-            (*client).class_class,
+            instance.as_ptr(),
+            class
+                .as_ref()
+                .map_or(std::ptr::null(), |class| class.as_ptr()),
         );
     }
 }
@@ -1520,11 +1534,17 @@ unsafe fn handle_client_message(event: &x::ClientMessageEvent) {
                 mode: x::SetMode::Insert,
                 window: x::Window::new(client),
             });
-            let tc: *mut trayclient =
-                scalloc(1_usize, ::core::mem::size_of::<trayclient>() as usize) as *mut trayclient;
-            (*tc).win = client;
-            (*tc).xe_version = xe_version;
-            (*tc).mapped = false;
+            let tc = Box::into_raw(Box::new(trayclient {
+                win: client,
+                xe_version,
+                mapped: false,
+                class_class: None,
+                class_instance: None,
+                tailq: crate::child::TrayClientLinks {
+                    tqe_next: std::ptr::null_mut(),
+                    tqe_prev: std::ptr::null_mut(),
+                },
+            }));
             (*tc).tailq.tqe_next = ::core::ptr::null_mut::<trayclient>();
             (*tc).tailq.tqe_prev = (*(*output_for_tray).trayclients).tqh_last;
             *(*(*output_for_tray).trayclients).tqh_last = tc;
@@ -1590,9 +1610,7 @@ unsafe fn handle_destroy_notify(event: &x::DestroyNotifyEvent) {
         (*(*output).trayclients).tqh_last = (*client).tailq.tqe_prev;
     }
     *(*client).tailq.tqe_prev = (*client).tailq.tqe_next;
-    free((*client).class_class as *mut ::core::ffi::c_void);
-    free((*client).class_instance as *mut ::core::ffi::c_void);
-    free(client as *mut ::core::ffi::c_void);
+    drop(Box::from_raw(client));
     client = ::core::ptr::null_mut::<trayclient>();
     configure_trayclients();
     draw_bars(false);
@@ -2426,15 +2444,13 @@ pub unsafe fn kick_tray_clients(output: *mut i3_output) {
             x: 0,
             y: 0,
         });
-        free((*trayclient).class_class as *mut ::core::ffi::c_void);
-        free((*trayclient).class_instance as *mut ::core::ffi::c_void);
         if !(*trayclient).tailq.tqe_next.is_null() {
             (*(*trayclient).tailq.tqe_next).tailq.tqe_prev = (*trayclient).tailq.tqe_prev;
         } else {
             (*(*output).trayclients).tqh_last = (*trayclient).tailq.tqe_prev;
         }
         *(*trayclient).tailq.tqe_prev = (*trayclient).tailq.tqe_next;
-        free(trayclient as *mut ::core::ffi::c_void);
+        drop(Box::from_raw(trayclient));
         trayclient = ::core::ptr::null_mut::<trayclient>();
     }
     let packet = destroy_message(selwin);
@@ -3221,7 +3237,6 @@ use i3_common::dpi::logical_px;
 use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;
 use i3_common::safewrappers::sstrndup;
-use i3_common::safewrappers::strcasecmp_nullable;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
 
@@ -3291,6 +3306,7 @@ impl AtomIndex {
 #[cfg(test)]
 mod owned_tests {
     use super::*;
+
     #[test]
     fn copied_button_inputs_retain_group_bits_coordinates_and_release_after_owner_drop() {
         let input = {

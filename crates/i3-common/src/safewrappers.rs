@@ -123,23 +123,20 @@ fn write_buffer(
     Ok(written)
 }
 
-/// Compare optional native strings using the current C locale. Null sorts first.
-///
-/// # Safety
-/// Each non-null argument must remain a readable NUL-terminated string for the
-/// comparison. Identical pointers (including two null pointers) compare equal.
-pub unsafe fn strcasecmp_nullable(a: *const c_char, b: *const c_char) -> i32 {
-    if a == b {
-        return 0;
+/// Compare optional bounded byte strings using native locale ordering. Missing
+/// sorts before present (including empty); only the first-NUL prefix is compared.
+pub fn strcasecmp_nullable(a: Option<&[u8]>, b: Option<&[u8]>) -> i32 {
+    match (a, b) {
+        (None, None) => 0,
+        (None, Some(_)) => -1,
+        (Some(_), None) => 1,
+        (Some(a), Some(b)) => {
+            let a = std::ffi::CString::new(a.split(|&byte| byte == 0).next().unwrap()).unwrap();
+            let b = std::ffi::CString::new(b.split(|&byte| byte == 0).next().unwrap()).unwrap();
+            // SAFETY: independent local owners terminate both native arguments.
+            unsafe { libc::strcasecmp(a.as_ptr(), b.as_ptr()) }
+        }
     }
-    if a.is_null() {
-        return -1;
-    }
-    if b.is_null() {
-        return 1;
-    }
-    // SAFETY: both non-null strings satisfy the caller's C-string contract.
-    unsafe { strcasecmp(a, b) }
 }
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
@@ -152,6 +149,35 @@ use crate::native_stdio::err;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn nullable_byte_order_keeps_native_binary_and_first_nul_semantics() {
+        let values: &[Option<&[u8]>] = &[
+            None,
+            Some(b""),
+            Some(b"Class"),
+            Some(b"class"),
+            Some(b"instance\xff"),
+            Some(b"Class\0ignored\xff"),
+        ];
+        for &a in values {
+            for &b in values {
+                let expected = match (a, b) {
+                    (None, None) => 0,
+                    (None, Some(_)) => -1,
+                    (Some(_), None) => 1,
+                    (Some(a), Some(b)) => {
+                        let a = std::ffi::CString::new(a.split(|&byte| byte == 0).next().unwrap())
+                            .unwrap();
+                        let b = std::ffi::CString::new(b.split(|&byte| byte == 0).next().unwrap())
+                            .unwrap();
+                        unsafe { libc::strcasecmp(a.as_ptr(), b.as_ptr()) }
+                    }
+                };
+                assert_eq!(strcasecmp_nullable(a, b), expected);
+            }
+        }
+    }
+
     use std::collections::VecDeque;
     use std::io::Read;
     use std::os::fd::AsRawFd;
