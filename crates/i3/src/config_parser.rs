@@ -5690,26 +5690,77 @@ unsafe fn parse_config(
     while *dumpwalk as ::core::ffi::c_int != '\0' as i32 {
         let next_nl: *const ::core::ffi::c_char = strchr(dumpwalk, '\n' as i32);
         if !next_nl.is_null() {
-            debuglog(
-                c"%s:%s:%d - CONFIG(line %3d): %.*s\n".as_ptr().cast_mut(),
-                c"../src/config_parser.c".as_ptr(),
-                c"parse_config".as_ptr(),
-                151 as ::core::ffi::c_int,
-                linecnt,
-                next_nl.offset_from(dumpwalk) as ::core::ffi::c_long as ::core::ffi::c_int,
-                dumpwalk,
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = (linecnt) as i32;
+                let log_precision_1 = (next_nl.offset_from(dumpwalk) as ::core::ffi::c_long
+                    as ::core::ffi::c_int) as i32;
+                let log_pointer_2 = dumpwalk;
+                let log_value_1 = i3_common::logging::string_bytes(
+                    if log_pointer_2.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                    },
+                    usize::try_from(log_precision_1).ok(),
+                )
+                .to_vec();
+                if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                    ::log::debug!(
+                        "../src/config_parser.c:parse_config:151 - CONFIG(line {:3}): {}\n",
+                        log_value_0,
+                        log_value_1_text
+                    );
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice(
+                        format!(
+                            "../src/config_parser.c:parse_config:151 - CONFIG(line {:3}): ",
+                            log_value_0
+                        )
+                        .as_bytes(),
+                    );
+                    message.extend_from_slice(&log_value_1);
+                    message.extend_from_slice("\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+                }
+            };
             dumpwalk = next_nl.offset(1 as ::core::ffi::c_int as isize);
             linecnt += 1;
         } else {
-            debuglog(
-                c"%s:%s:%d - CONFIG(line %3d): %s\n".as_ptr().cast_mut(),
-                c"../src/config_parser.c".as_ptr(),
-                c"parse_config".as_ptr(),
-                154 as ::core::ffi::c_int,
-                linecnt,
-                dumpwalk,
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = (linecnt) as i32;
+                let log_pointer_2 = dumpwalk;
+                let log_value_1 = i3_common::logging::string_bytes(
+                    if log_pointer_2.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                    ::log::debug!(
+                        "../src/config_parser.c:parse_config:154 - CONFIG(line {:3}): {}\n",
+                        log_value_0,
+                        log_value_1_text
+                    );
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice(
+                        format!(
+                            "../src/config_parser.c:parse_config:154 - CONFIG(line {:3}): ",
+                            log_value_0
+                        )
+                        .as_bytes(),
+                    );
+                    message.extend_from_slice(&log_value_1);
+                    message.extend_from_slice("\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+                }
+            };
             break;
         }
     }
@@ -5873,11 +5924,50 @@ unsafe fn parse_config(
                 .collect();
             let caret = std::ffi::CString::new(caret).expect("caret bytes contain no NUL");
             let position = caret.as_ptr();
-            errorlog(c"ERROR: CONFIG: %s\n".as_ptr().cast_mut(), errormessage);
-            errorlog(
-                c"ERROR: CONFIG: (in file %s)\n".as_ptr().cast_mut(),
-                (*context).filename,
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = errormessage;
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::error!("ERROR: CONFIG: {}\n", log_value_0_text);
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice("ERROR: CONFIG: ".as_bytes());
+                    message.extend_from_slice(&log_value_0);
+                    message.extend_from_slice("\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                }
+            };
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = (*context).filename;
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::error!("ERROR: CONFIG: (in file {})\n", log_value_0_text);
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice("ERROR: CONFIG: (in file ".as_bytes());
+                    message.extend_from_slice(&log_value_0);
+                    message.extend_from_slice(")\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                }
+            };
             let mut error_copy: *mut ::core::ffi::c_char = single_line(error_line);
             if linecnt > 1 as ::core::ffi::c_int {
                 let context_p1_start: *const ::core::ffi::c_char = previous_line(error_line, input);
@@ -5886,29 +5976,119 @@ unsafe fn parse_config(
                     let context_p2_start: *const ::core::ffi::c_char =
                         previous_line(context_p1_start, input);
                     let context_p2_line: *mut ::core::ffi::c_char = single_line(context_p2_start);
-                    errorlog(
-                        c"ERROR: CONFIG: Line %3d: %s\n".as_ptr().cast_mut(),
-                        linecnt - 2 as ::core::ffi::c_int,
-                        context_p2_line,
-                    );
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_value_0 = (linecnt - 2 as ::core::ffi::c_int) as i32;
+                        let log_pointer_2 = context_p2_line;
+                        let log_value_1 = i3_common::logging::string_bytes(
+                            if log_pointer_2.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                            ::log::error!(
+                                "ERROR: CONFIG: Line {:3}: {}\n",
+                                log_value_0,
+                                log_value_1_text
+                            );
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice(
+                                format!("ERROR: CONFIG: Line {:3}: ", log_value_0).as_bytes(),
+                            );
+                            message.extend_from_slice(&log_value_1);
+                            message.extend_from_slice("\n".as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                        }
+                    };
                     free(context_p2_line as *mut ::core::ffi::c_void);
                 }
-                errorlog(
-                    c"ERROR: CONFIG: Line %3d: %s\n".as_ptr().cast_mut(),
-                    linecnt - 1 as ::core::ffi::c_int,
-                    context_p1_line,
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = (linecnt - 1 as ::core::ffi::c_int) as i32;
+                    let log_pointer_2 = context_p1_line;
+                    let log_value_1 = i3_common::logging::string_bytes(
+                        if log_pointer_2.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                        },
+                        None,
+                    )
+                    .to_vec();
+                    if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                        ::log::error!(
+                            "ERROR: CONFIG: Line {:3}: {}\n",
+                            log_value_0,
+                            log_value_1_text
+                        );
+                    } else {
+                        let mut message = Vec::new();
+                        message.extend_from_slice(
+                            format!("ERROR: CONFIG: Line {:3}: ", log_value_0).as_bytes(),
+                        );
+                        message.extend_from_slice(&log_value_1);
+                        message.extend_from_slice("\n".as_bytes());
+                        i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                    }
+                };
                 free(context_p1_line as *mut ::core::ffi::c_void);
             }
-            errorlog(
-                c"ERROR: CONFIG: Line %3d: %s\n".as_ptr().cast_mut(),
-                linecnt,
-                error_copy,
-            );
-            errorlog(
-                c"ERROR: CONFIG:           %s\n".as_ptr().cast_mut(),
-                position,
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_value_0 = (linecnt) as i32;
+                let log_pointer_2 = error_copy;
+                let log_value_1 = i3_common::logging::string_bytes(
+                    if log_pointer_2.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                    ::log::error!(
+                        "ERROR: CONFIG: Line {:3}: {}\n",
+                        log_value_0,
+                        log_value_1_text
+                    );
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice(
+                        format!("ERROR: CONFIG: Line {:3}: ", log_value_0).as_bytes(),
+                    );
+                    message.extend_from_slice(&log_value_1);
+                    message.extend_from_slice("\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                }
+            };
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = position;
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                    ::log::error!("ERROR: CONFIG:           {}\n", log_value_0_text);
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice("ERROR: CONFIG:           ".as_bytes());
+                    message.extend_from_slice(&log_value_0);
+                    message.extend_from_slice("\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                }
+            };
             free(error_copy as *mut ::core::ffi::c_void);
             let mut i_0: ::core::ffi::c_int = 0 as ::core::ffi::c_int;
             while i_0 < 2 as ::core::ffi::c_int {
@@ -5920,11 +6100,35 @@ unsafe fn parse_config(
                 {
                     error_line = error_line_end.offset(1 as ::core::ffi::c_int as isize);
                     error_copy = single_line(error_line);
-                    errorlog(
-                        c"ERROR: CONFIG: Line %3d: %s\n".as_ptr().cast_mut(),
-                        linecnt + i_0 + 1 as ::core::ffi::c_int,
-                        error_copy,
-                    );
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_value_0 = (linecnt + i_0 + 1 as ::core::ffi::c_int) as i32;
+                        let log_pointer_2 = error_copy;
+                        let log_value_1 = i3_common::logging::string_bytes(
+                            if log_pointer_2.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        if let (Ok(log_value_1_text),) = (std::str::from_utf8(&log_value_1),) {
+                            ::log::error!(
+                                "ERROR: CONFIG: Line {:3}: {}\n",
+                                log_value_0,
+                                log_value_1_text
+                            );
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice(
+                                format!("ERROR: CONFIG: Line {:3}: ", log_value_0).as_bytes(),
+                            );
+                            message.extend_from_slice(&log_value_1);
+                            message.extend_from_slice("\n".as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                        }
+                    };
                     free(error_copy as *mut ::core::ffi::c_void);
                 }
                 i_0 += 1;
@@ -6050,39 +6254,116 @@ unsafe fn upsert_variable(
     key: *const libc::c_char,
     value: *const libc::c_char,
 ) {
-    let key_text = std::ffi::CStr::from_ptr(key);
-    let value_text = std::ffi::CStr::from_ptr(value);
+    let key_text = std::ffi::CStr::from_ptr(key).to_owned();
+    let value_text = std::ffi::CStr::from_ptr(value).to_owned();
+    let key = key_text.as_ptr();
+    let value = value_text.as_ptr();
     // Snapshot the old value before diagnostics, so no vector borrow survives a
     // logger callback. Preserve the original debug text and ordering.
     let previous = (&*variables)
         .iter()
-        .find(|entry| entry.key.as_c_str() == key_text)
+        .find(|entry| entry.key.as_c_str() == key_text.as_c_str())
         .map(|entry| entry.value.clone());
     if let Some(previous) = previous {
-        debuglog(
-            c"%s:%s:%d - Updated variable: %s = %s -> %s\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/config_parser.c".as_ptr(),
-            c"upsert_variable".as_ptr(),
-            543i32,
-            key,
-            previous.as_ptr(),
-            value,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = key;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            let log_pointer_2 = previous.as_ptr();
+            let log_value_1 = i3_common::logging::string_bytes(
+                if log_pointer_2.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                },
+                None,
+            )
+            .to_vec();
+            let log_pointer_3 = value;
+            let log_value_2 = i3_common::logging::string_bytes(
+                if log_pointer_3.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_3))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text), Ok(log_value_1_text), Ok(log_value_2_text)) = (
+                std::str::from_utf8(&log_value_0),
+                std::str::from_utf8(&log_value_1),
+                std::str::from_utf8(&log_value_2),
+            ) {
+                ::log::debug!("../src/config_parser.c:upsert_variable:543 - Updated variable: {} = {} -> {}\n", log_value_0_text, log_value_1_text, log_value_2_text);
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice(
+                    "../src/config_parser.c:upsert_variable:543 - Updated variable: ".as_bytes(),
+                );
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice(" = ".as_bytes());
+                message.extend_from_slice(&log_value_1);
+                message.extend_from_slice(" -> ".as_bytes());
+                message.extend_from_slice(&log_value_2);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+            }
+        };
     } else {
-        debuglog(
-            c"%s:%s:%d - Defined new variable: %s = %s\n"
-                .as_ptr()
-                .cast_mut(),
-            c"../src/config_parser.c".as_ptr(),
-            c"upsert_variable".as_ptr(),
-            549i32,
-            key,
-            value,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = key;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            let log_pointer_2 = value;
+            let log_value_1 = i3_common::logging::string_bytes(
+                if log_pointer_2.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+                std::str::from_utf8(&log_value_0),
+                std::str::from_utf8(&log_value_1),
+            ) {
+                ::log::debug!(
+                    "../src/config_parser.c:upsert_variable:549 - Defined new variable: {} = {}\n",
+                    log_value_0_text,
+                    log_value_1_text
+                );
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice(
+                    "../src/config_parser.c:upsert_variable:549 - Defined new variable: "
+                        .as_bytes(),
+                );
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice(" = ".as_bytes());
+                message.extend_from_slice(&log_value_1);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+            }
+        };
     }
-    store_variable(&mut *variables, key_text, value_text);
+    store_variable(&mut *variables, &key_text, &value_text);
 }
 
 #[derive(Default)]
@@ -6098,11 +6379,7 @@ impl ResourceDatabase {
             self.0 = i3_common::display::connection()
                 .and_then(xcb_interop::xrm::Database::from_connection);
             if self.0.is_none() {
-                errorlog(
-                    c"ERROR: Failed to open the resource database.\n"
-                        .as_ptr()
-                        .cast_mut(),
-                );
+                ::log::error!("ERROR: Failed to open the resource database.\n");
                 self.0 = xcb_interop::xrm::Database::from_string(c"");
                 return None;
             }
@@ -6174,18 +6451,75 @@ unsafe fn try_chdir(path: *const ::core::ffi::c_char) -> bool {
     let mut dirbuf: *mut ::core::ffi::c_char = sstrdup(path);
     dir = dirname(dirbuf);
     if !dir.is_null() {
-        verboselog(
-            c"Changing working directory to config file directory %s\n"
-                .as_ptr()
-                .cast_mut(),
-            dir,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = dir;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::info!(
+                    "Changing working directory to config file directory {}\n",
+                    log_value_0_text
+                );
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice(
+                    "Changing working directory to config file directory ".as_bytes(),
+                );
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Verbose, &message);
+            }
+        };
         if chdir(dir) == -(1 as ::core::ffi::c_int) {
-            errorlog(
-                c"ERROR: chdir(%s) failed: %s\n".as_ptr().cast_mut(),
-                dir,
-                strerror(*__errno_location()),
-            );
+            {
+                // Snapshot native bytes before the logger can dispatch a callback.
+                let log_pointer_1 = dir;
+                let log_value_0 = i3_common::logging::string_bytes(
+                    if log_pointer_1.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                    },
+                    None,
+                )
+                .to_vec();
+                let log_pointer_2 = strerror(*__errno_location());
+                let log_value_1 = i3_common::logging::string_bytes(
+                    if log_pointer_2.is_null() {
+                        None
+                    } else {
+                        Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                    },
+                    None,
+                )
+                .to_vec();
+                if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+                    std::str::from_utf8(&log_value_0),
+                    std::str::from_utf8(&log_value_1),
+                ) {
+                    ::log::error!(
+                        "ERROR: chdir({}) failed: {}\n",
+                        log_value_0_text,
+                        log_value_1_text
+                    );
+                } else {
+                    let mut message = Vec::new();
+                    message.extend_from_slice("ERROR: chdir(".as_bytes());
+                    message.extend_from_slice(&log_value_0);
+                    message.extend_from_slice(") failed: ".as_bytes());
+                    message.extend_from_slice(&log_value_1);
+                    message.extend_from_slice("\n".as_bytes());
+                    i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                }
+            };
             result = false_0 != 0;
         }
     }
@@ -6269,12 +6603,14 @@ unsafe fn parse_file_inner(
                 != '\n' as i32
                 && feof(fstr) == 0
             {
-                errorlog(
-                    c"ERROR: Your line continuation is too long, it exceeds %zd bytes\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    ::core::mem::size_of::<[::core::ffi::c_char; 4096]>(),
-                );
+                {
+                    let log_value_0 =
+                        (::core::mem::size_of::<[::core::ffi::c_char; 4096]>()) as isize;
+                    ::log::error!(
+                        "ERROR: Your line continuation is too long, it exceeds {} bytes\n",
+                        log_value_0
+                    );
+                };
             }
             value[0 as ::core::ffi::c_int as usize] = '\0' as i32 as ::core::ffi::c_char;
             let skip_line: bool = sscanf(
@@ -6295,17 +6631,31 @@ unsafe fn parse_file_inner(
                 if !comment {
                     continue;
                 }
-                debuglog(
-                    c"%s:%s:%d - line continuation in comment is ignored: \"%.*s\"\n"
-                        .as_ptr()
-                        .cast_mut(),
-                    c"../src/config_parser.c".as_ptr(),
-                    c"parse_file_inner".as_ptr(),
-                    682 as ::core::ffi::c_int,
-                    strlen(&raw mut buffer as *mut ::core::ffi::c_char) as ::core::ffi::c_int
-                        - 1 as ::core::ffi::c_int,
-                    &raw mut buffer as *mut ::core::ffi::c_char,
-                );
+                {
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_precision_0 = (strlen(&raw mut buffer as *mut ::core::ffi::c_char)
+                        as ::core::ffi::c_int
+                        - 1 as ::core::ffi::c_int) as i32;
+                    let log_pointer_1 = &raw mut buffer as *mut ::core::ffi::c_char;
+                    let log_value_0 = i3_common::logging::string_bytes(
+                        if log_pointer_1.is_null() {
+                            None
+                        } else {
+                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                        },
+                        usize::try_from(log_precision_0).ok(),
+                    )
+                    .to_vec();
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::debug!("../src/config_parser.c:parse_file_inner:682 - line continuation in comment is ignored: \"{}\"\n", log_value_0_text);
+                    } else {
+                        let mut message = Vec::new();
+                        message.extend_from_slice("../src/config_parser.c:parse_file_inner:682 - line continuation in comment is ignored: \"".as_bytes());
+                        message.extend_from_slice(&log_value_0);
+                        message.extend_from_slice("\"\n".as_bytes());
+                        i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+                    }
+                };
                 continuation = ::core::ptr::null_mut::<::core::ffi::c_char>();
             }
             buffer_contents.extend_from_slice(std::ffi::CStr::from_ptr(buffer.as_ptr()).to_bytes());
@@ -6326,20 +6676,36 @@ unsafe fn parse_file_inner(
                     &raw mut v_value as *mut ::core::ffi::c_char,
                 ) < 1 as ::core::ffi::c_int
                 {
-                    errorlog(
-                        c"ERROR: Failed to parse variable specification '%s', skipping it.\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        &raw mut value as *mut ::core::ffi::c_char,
-                    );
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_pointer_1 = &raw mut value as *mut ::core::ffi::c_char;
+                        let log_value_0 = i3_common::logging::string_bytes(
+                            if log_pointer_1.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                            ::log::error!("ERROR: Failed to parse variable specification '{}', skipping it.\n", log_value_0_text);
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice(
+                                "ERROR: Failed to parse variable specification '".as_bytes(),
+                            );
+                            message.extend_from_slice(&log_value_0);
+                            message.extend_from_slice("', skipping it.\n".as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                        }
+                    };
                     invalid_sets = true_0 != 0;
                 } else if v_key[0 as ::core::ffi::c_int as usize] as ::core::ffi::c_int
                     != '$' as i32
                 {
-                    errorlog(
-                        c"ERROR: Malformed variable assignment, name has to start with $\n"
-                            .as_ptr()
-                            .cast_mut(),
+                    ::log::error!(
+                        "ERROR: Malformed variable assignment, name has to start with $\n"
                     );
                     invalid_sets = true_0 != 0;
                 } else {
@@ -6369,20 +6735,36 @@ unsafe fn parse_file_inner(
                     &raw mut fallback as *mut ::core::ffi::c_char,
                 ) < 1 as ::core::ffi::c_int
                 {
-                    errorlog(
-                        c"ERROR: Failed to parse resource specification '%s', skipping it.\n"
-                            .as_ptr()
-                            .cast_mut(),
-                        &raw mut value as *mut ::core::ffi::c_char,
-                    );
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_pointer_1 = &raw mut value as *mut ::core::ffi::c_char;
+                        let log_value_0 = i3_common::logging::string_bytes(
+                            if log_pointer_1.is_null() {
+                                None
+                            } else {
+                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                            },
+                            None,
+                        )
+                        .to_vec();
+                        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                            ::log::error!("ERROR: Failed to parse resource specification '{}', skipping it.\n", log_value_0_text);
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice(
+                                "ERROR: Failed to parse resource specification '".as_bytes(),
+                            );
+                            message.extend_from_slice(&log_value_0);
+                            message.extend_from_slice("', skipping it.\n".as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                        }
+                    };
                     invalid_sets = true_0 != 0;
                 } else if v_key_0[0 as ::core::ffi::c_int as usize] as ::core::ffi::c_int
                     != '$' as i32
                 {
-                    errorlog(
-                        c"ERROR: Malformed variable assignment, name has to start with $\n"
-                            .as_ptr()
-                            .cast_mut(),
+                    ::log::error!(
+                        "ERROR: Malformed variable assignment, name has to start with $\n"
                     );
                     invalid_sets = true_0 != 0;
                 } else {
@@ -6392,16 +6774,46 @@ unsafe fn parse_file_inner(
                         .as_ref()
                         .map_or(std::ptr::null(), |value| value.as_ptr());
                     if res_value.is_null() {
-                        debuglog(
-                            c"%s:%s:%d - Could not get resource '%s', using fallback '%s'.\n"
-                                .as_ptr()
-                                .cast_mut(),
-                            c"../src/config_parser.c".as_ptr(),
-                            c"parse_file_inner".as_ptr(),
-                            738 as ::core::ffi::c_int,
-                            &raw mut res_name as *mut ::core::ffi::c_char,
-                            &raw mut fallback as *mut ::core::ffi::c_char,
-                        );
+                        {
+                            // Snapshot native bytes before the logger can dispatch a callback.
+                            let log_pointer_1 = &raw mut res_name as *mut ::core::ffi::c_char;
+                            let log_value_0 = i3_common::logging::string_bytes(
+                                if log_pointer_1.is_null() {
+                                    None
+                                } else {
+                                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                                },
+                                None,
+                            )
+                            .to_vec();
+                            let log_pointer_2 = &raw mut fallback as *mut ::core::ffi::c_char;
+                            let log_value_1 = i3_common::logging::string_bytes(
+                                if log_pointer_2.is_null() {
+                                    None
+                                } else {
+                                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                                },
+                                None,
+                            )
+                            .to_vec();
+                            if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+                                std::str::from_utf8(&log_value_0),
+                                std::str::from_utf8(&log_value_1),
+                            ) {
+                                ::log::debug!("../src/config_parser.c:parse_file_inner:738 - Could not get resource '{}', using fallback '{}'.\n", log_value_0_text, log_value_1_text);
+                            } else {
+                                let mut message = Vec::new();
+                                message.extend_from_slice("../src/config_parser.c:parse_file_inner:738 - Could not get resource '".as_bytes());
+                                message.extend_from_slice(&log_value_0);
+                                message.extend_from_slice("', using fallback '".as_bytes());
+                                message.extend_from_slice(&log_value_1);
+                                message.extend_from_slice("'.\n".as_bytes());
+                                i3_common::logging::emit(
+                                    i3_common::logging::Level::Debug,
+                                    &message,
+                                );
+                            }
+                        };
                         res_value = fallback.as_ptr();
                     }
                     upsert_variable(
@@ -6440,12 +6852,31 @@ unsafe fn parse_file_inner(
             || (*context).has_warnings as ::core::ffi::c_int != 0
             || invalid_sets as ::core::ffi::c_int != 0)
     {
-        errorlog(
-            c"ERROR: FYI: You are using i3 version %s\n"
-                .as_ptr()
-                .cast_mut(),
-            i3_version,
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = i3_version;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!(
+                    "ERROR: FYI: You are using i3 version {}\n",
+                    log_value_0_text
+                );
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: FYI: You are using i3 version ".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         start_config_error_nagbar(
             f,
             (*context).has_errors as ::core::ffi::c_int != 0
@@ -6471,11 +6902,47 @@ pub unsafe fn parse_file(
     let old_dir = old_directory.0;
     let mut result: ParseFileResult = parse_file_inner(ctx, f, included_file);
     if chdir(old_dir) == -(1 as ::core::ffi::c_int) {
-        errorlog(
-            c"ERROR: chdir(%s) failed: %s\n".as_ptr().cast_mut(),
-            old_dir,
-            strerror(*__errno_location()),
-        );
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = old_dir;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            let log_pointer_2 = strerror(*__errno_location());
+            let log_value_1 = i3_common::logging::string_bytes(
+                if log_pointer_2.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+                std::str::from_utf8(&log_value_0),
+                std::str::from_utf8(&log_value_1),
+            ) {
+                ::log::error!(
+                    "ERROR: chdir({}) failed: {}\n",
+                    log_value_0_text,
+                    log_value_1_text
+                );
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: chdir(".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice(") failed: ".as_bytes());
+                message.extend_from_slice(&log_value_1);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         result = ParseFileResult::Failed;
     }
 
@@ -6501,8 +6968,6 @@ pub use libc::{
 };
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog, verboselog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Match;

@@ -3977,13 +3977,33 @@ pub unsafe fn parse_command(
     output: Option<&mut Vec<u8>>,
     client: *mut ipc_client,
 ) -> *mut CommandResult {
-    debuglog(
-        c"%s:%s:%d - COMMAND: *%.4000s*\n".as_ptr().cast_mut(),
-        c"../src/commands_parser.c".as_ptr(),
-        c"parse_command".as_ptr(),
-        159 as ::core::ffi::c_int,
-        input,
-    );
+    {
+        // Snapshot native bytes before the logger can dispatch a callback.
+        let log_pointer_1 = input;
+        let log_value_0 = i3_common::logging::string_bytes(
+            if log_pointer_1.is_null() {
+                None
+            } else {
+                Some(std::ffi::CStr::from_ptr(log_pointer_1))
+            },
+            Some(4000),
+        )
+        .to_vec();
+        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+            ::log::debug!(
+                "../src/commands_parser.c:parse_command:159 - COMMAND: *{}*\n",
+                log_value_0_text
+            );
+        } else {
+            let mut message = Vec::new();
+            message.extend_from_slice(
+                "../src/commands_parser.c:parse_command:159 - COMMAND: *".as_bytes(),
+            );
+            message.extend_from_slice(&log_value_0);
+            message.extend_from_slice("*\n".as_bytes());
+            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+        }
+    };
     let mut output = output;
     let mut cmd_ctx: cmd_parser_ctx = cmd_parser_ctx {
         json_output: output
@@ -4142,9 +4162,72 @@ pub unsafe fn parse_command(
         caret[offset..].fill(b'^');
         let caret = std::ffi::CString::new(caret).expect("caret bytes contain no NUL");
         let position = caret.as_ptr();
-        errorlog(c"ERROR: %s\n".as_ptr().cast_mut(), errormessage);
-        errorlog(c"ERROR: Your command: %s\n".as_ptr().cast_mut(), input);
-        errorlog(c"ERROR:               %s\n".as_ptr().cast_mut(), position);
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = errormessage;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!("ERROR: {}\n", log_value_0_text);
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: ".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = input;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!("ERROR: Your command: {}\n", log_value_0_text);
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR: Your command: ".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
+        {
+            // Snapshot native bytes before the logger can dispatch a callback.
+            let log_pointer_1 = position;
+            let log_value_0 = i3_common::logging::string_bytes(
+                if log_pointer_1.is_null() {
+                    None
+                } else {
+                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
+                },
+                None,
+            )
+            .to_vec();
+            if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                ::log::error!("ERROR:               {}\n", log_value_0_text);
+            } else {
+                let mut message = Vec::new();
+                message.extend_from_slice("ERROR:               ".as_bytes());
+                message.extend_from_slice(&log_value_0);
+                message.extend_from_slice("\n".as_bytes());
+                i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+            }
+        };
         (*result).parse_error = true_0 != 0;
         (*result).error_message = errormessage;
         emit_command_reply(
@@ -4200,8 +4283,6 @@ use i3_common::safewrappers::smalloc;
 pub use libc::{__errno_location, free, printf, strcmp, strcpy, strlen, strncasecmp, strtol};
 
 use i3_common::native_stdio::__assert_fail;
-
-use crate::log::{debuglog, errorlog};
 
 // Shared model types retain field layout while using one Rust identity.
 pub use crate::types::Con;
