@@ -793,17 +793,21 @@ fn direction_argument(value: &[u8]) -> Option<Direction> {
     }
 }
 
-unsafe fn parse_direction(value: *const libc::c_char) -> Direction {
-    if let Some(direction) = direction_argument(std::ffi::CStr::from_ptr(value).to_bytes()) {
+fn parse_direction(value: &[u8]) -> Direction {
+    let value = value.split(|&byte| byte == 0).next().unwrap();
+    if let Some(direction) = direction_argument(value) {
         return direction;
     }
     ::log::error!("ERROR: Invalid direction. This is a parser bug.\n");
-    __assert_fail(
-        c"false".as_ptr(),
-        c"../src/commands.c".as_ptr(),
-        389 as ::core::ffi::c_uint,
-        c"direction_t parse_direction(const char *)".as_ptr(),
-    );
+    // Preserve the native parser-bug abort and diagnostic rather than unwinding.
+    unsafe {
+        __assert_fail(
+            c"false".as_ptr(),
+            c"../src/commands.c".as_ptr(),
+            389 as ::core::ffi::c_uint,
+            c"direction_t parse_direction(const char *)".as_ptr(),
+        )
+    }
 }
 unsafe fn cmd_resize_floating(
     current_match: *mut Match,
@@ -820,7 +824,7 @@ unsafe fn cmd_resize_floating(
     } else if strcmp(direction_str, c"width".as_ptr()) == 0_i32 {
         direction = Direction::Right;
     } else {
-        direction = parse_direction(direction_str);
+        direction = parse_direction(std::ffi::CStr::from_ptr(direction_str).to_bytes());
     }
     let orientation: Orientation = orientation_from_direction(direction);
     let window: *const i3Window = (*focused_con).window;
@@ -885,7 +889,8 @@ unsafe fn cmd_resize_tiling_direction(
     mut px: i32,
     ppt: i32,
 ) -> bool {
-    let search_direction: Direction = parse_direction(direction);
+    let search_direction: Direction =
+        parse_direction(std::ffi::CStr::from_ptr(direction).to_bytes());
     let Ok((first, second)) = resize_find_tiling_participants(current, search_direction, false)
     else {
         if (*cmd_output).has_reply() {
@@ -2545,8 +2550,9 @@ pub unsafe fn cmd_floating(
 pub unsafe fn cmd_split(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    direction: *const ::core::ffi::c_char,
+    direction: &[u8],
 ) {
+    let direction = direction.split(|&byte| byte == 0).next().unwrap();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
             let error =
@@ -2580,7 +2586,7 @@ pub unsafe fn cmd_split(
     let mut current: *mut owindow = ::core::ptr::null_mut::<owindow>();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_value_0 = vec![*direction as u8];
+        let log_value_0 = vec![direction.first().copied().unwrap_or(0)];
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::info!("splitting in direction {}\n", log_value_0_text);
         } else {
@@ -2626,7 +2632,7 @@ pub unsafe fn cmd_split(
                     );
                 }
             };
-            if *direction.offset(0_isize) as i32 == 't' as i32 {
+            if direction.first() == Some(&b't') {
                 let mut current_layout: Layout = Layout::Default;
                 if ((*(*current).con).type_0) == ContainerType::Workspace {
                     current_layout = (*(*current).con).layout;
@@ -2641,7 +2647,7 @@ pub unsafe fn cmd_split(
             } else {
                 tree_split(
                     (*current).con,
-                    if *direction.offset(0_isize) as i32 == 'v' as i32 {
+                    if direction.first() == Some(&b'v') {
                         Orientation::Vertical
                     } else {
                         Orientation::Horizontal
@@ -2853,8 +2859,9 @@ pub unsafe fn cmd_exec(
 pub unsafe fn cmd_focus_direction(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    direction_str: *const ::core::ffi::c_char,
+    direction_str: &[u8],
 ) {
+    let direction_str = direction_str.split(|&byte| byte == 0).next().unwrap();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
             let error =
@@ -2898,9 +2905,9 @@ pub unsafe fn cmd_focus_direction(
     let mut direction: Direction = Direction::Left;
     let mut position: Position = Position::Before;
     let mut auto_direction: bool = true;
-    if strcmp(direction_str, c"prev".as_ptr()) == 0_i32 {
+    if direction_str == b"prev" {
         position = Position::Before;
-    } else if strcmp(direction_str, c"next".as_ptr()) == 0_i32 {
+    } else if direction_str == b"next" {
         position = Position::After;
     } else {
         auto_direction = false;
@@ -2928,8 +2935,9 @@ pub unsafe fn cmd_focus_direction(
 pub unsafe fn cmd_focus_sibling(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    direction_str: *const ::core::ffi::c_char,
+    direction_str: &[u8],
 ) {
+    let direction_str = direction_str.split(|&byte| byte == 0).next().unwrap();
     if (*current_match).error.is_some() {
         if (*cmd_output).has_reply() {
             let error =
@@ -2970,12 +2978,15 @@ pub unsafe fn cmd_focus_sibling(
     if count > 1_i32 {
         ::log::info!("WARNING: Your criteria for the focus command matches {} containers, while only exactly one container can be focused at a time.\n", { (count) });
     }
-    let direction: Position =
-        if strncasecmp(direction_str, c"prev".as_ptr(), c"prev".count_bytes()) == 0_i32 {
-            Position::Before
-        } else {
-            Position::After
-        };
+    let direction: Position = if i3_common::safewrappers::strcasecmp_nullable(
+        Some(&direction_str[..direction_str.len().min(4)]),
+        Some(b"prev"),
+    ) == 0
+    {
+        Position::Before
+    } else {
+        Position::After
+    };
     let mut current_0: *mut owindow = (*(*cmd_output).ctx).owindows.tqh_first;
 
     while !current_0.is_null() {
@@ -3002,21 +3013,12 @@ pub unsafe fn cmd_focus_sibling(
 pub unsafe fn cmd_focus_window_mode(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    window_mode: *const ::core::ffi::c_char,
+    window_mode: &[u8],
 ) {
+    let window_mode = window_mode.split(|&byte| byte == 0).next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = window_mode;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = window_mode.to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_focus_window_mode:1366 - window_mode = {}\n",
@@ -3034,11 +3036,11 @@ pub unsafe fn cmd_focus_window_mode(
         }
     };
     let mut to_floating: bool = false;
-    if strcmp(window_mode, c"mode_toggle".as_ptr()) == 0_i32 {
+    if window_mode == b"mode_toggle" {
         to_floating = con_inside_floating(focused).is_null();
-    } else if strcmp(window_mode, c"floating".as_ptr()) == 0_i32 {
+    } else if window_mode == b"floating" {
         to_floating = true;
-    } else if strcmp(window_mode, c"tiling".as_ptr()) == 0_i32 {
+    } else if window_mode == b"tiling" {
         to_floating = false;
     }
     let ws: *const Con = con_get_workspace(focused);
@@ -3085,21 +3087,12 @@ pub unsafe fn cmd_focus_window_mode(
 pub unsafe fn cmd_focus_level(
     current_match: *mut Match,
     cmd_output: *mut CommandResultIR,
-    level: *const ::core::ffi::c_char,
+    level: &[u8],
 ) {
+    let level = level.split(|&byte| byte == 0).next().unwrap();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
-        let log_pointer_1 = level;
-        let log_value_0 = i3_common::logging::string_bytes(
-            (if log_pointer_1.is_null() {
-                None
-            } else {
-                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-            })
-            .map(std::ffi::CStr::to_bytes),
-            None,
-        )
-        .to_vec();
+        let log_value_0 = level.to_vec();
         if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
             ::log::debug!(
                 "../src/commands.c:cmd_focus_level:1404 - level = {}\n",
@@ -3117,7 +3110,7 @@ pub unsafe fn cmd_focus_level(
         }
     };
     let mut success: bool = false;
-    if strcmp(level, c"parent".as_ptr()) == 0_i32 {
+    if level == b"parent" {
         if !focused.is_null() && !parent_ptr(focused).is_null() {
             if con_fullscreen_permits_focusing(parent_ptr(focused)) {
                 success = level_up();
@@ -3529,7 +3522,7 @@ pub unsafe fn cmd_move_direction(
         *(*(*cmd_output).ctx).owindows.tqh_last = ow_0;
         (*(*cmd_output).ctx).owindows.tqh_last = &raw mut (*ow_0).owindows.tqe_next;
     }
-    let direction: Direction = parse_direction(direction_str);
+    let direction: Direction = parse_direction(std::ffi::CStr::from_ptr(direction_str).to_bytes());
     let is_ppt: bool = !mode.is_null() && strcmp(mode, c"ppt".as_ptr()) == 0_i32;
     {
         // Snapshot native bytes before the logger can dispatch a callback.
@@ -5861,6 +5854,10 @@ mod argument_tests {
     #[test]
     fn direction_arguments_remain_exact_case_sensitive_keywords() {
         assert!(matches!(direction_argument(b"left"), Some(Direction::Left)));
+        assert!(matches!(
+            parse_direction(b"left\0ignored\xff"),
+            Direction::Left
+        ));
         assert!(matches!(
             direction_argument(b"right"),
             Some(Direction::Right)

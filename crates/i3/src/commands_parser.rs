@@ -3402,19 +3402,21 @@ unsafe fn GENERATED_call(
         }
         67 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_sibling(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_sibling(current_match, result, &command_text);
         }
         68 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_direction(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_direction(current_match, result, &command_text);
         }
         69 => {
             (*result).next_state = CommandParserState::Initial;
@@ -3706,75 +3708,84 @@ unsafe fn GENERATED_call(
         }
         108 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_direction(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_direction(current_match, result, &command_text);
         }
         109 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_direction(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_direction(current_match, result, &command_text);
         }
         110 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_direction(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_direction(current_match, result, &command_text);
         }
         111 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_direction(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_direction(current_match, result, &command_text);
         }
         112 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_window_mode(
-                current_match,
-                result,
-                parser_get_string(stack, c"window_mode".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"window_mode")
+                .expect("command grammar supplies window_mode")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_window_mode(current_match, result, &command_text);
         }
         113 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_window_mode(
-                current_match,
-                result,
-                parser_get_string(stack, c"window_mode".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"window_mode")
+                .expect("command grammar supplies window_mode")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_window_mode(current_match, result, &command_text);
         }
         114 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_window_mode(
-                current_match,
-                result,
-                parser_get_string(stack, c"window_mode".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"window_mode")
+                .expect("command grammar supplies window_mode")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_window_mode(current_match, result, &command_text);
         }
         115 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_level(
-                current_match,
-                result,
-                parser_get_string(stack, c"level".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"level")
+                .expect("command grammar supplies level")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_level(current_match, result, &command_text);
         }
         116 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_focus_level(
-                current_match,
-                result,
-                parser_get_string(stack, c"level".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"level")
+                .expect("command grammar supplies level")
+                .to_bytes()
+                .to_vec();
+            cmd_focus_level(current_match, result, &command_text);
         }
         117 => {
             (*result).next_state = CommandParserState::Initial;
@@ -3786,51 +3797,57 @@ unsafe fn GENERATED_call(
         }
         119 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_split(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_split(current_match, result, &command_text);
         }
         120 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_split(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_split(current_match, result, &command_text);
         }
         121 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_split(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_split(current_match, result, &command_text);
         }
         122 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_split(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_split(current_match, result, &command_text);
         }
         123 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_split(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_split(current_match, result, &command_text);
         }
         124 => {
             (*result).next_state = CommandParserState::Initial;
-            cmd_split(
-                current_match,
-                result,
-                parser_get_string(stack, c"direction".as_ptr()),
-            );
+            let command_text = (&*stack)
+                .get_string(c"direction")
+                .expect("command grammar supplies direction")
+                .to_bytes()
+                .to_vec();
+            cmd_split(current_match, result, &command_text);
         }
         125 => {
             (*result).next_state = CommandParserState::Initial;
