@@ -6219,18 +6219,17 @@ pub unsafe fn start_config_error_nagbar(configpath: *const ::core::ffi::c_char, 
     free(editaction as *mut ::core::ffi::c_void);
     free(pageraction as *mut ::core::ffi::c_void);
 }
-fn store_variable(variables: &mut variables_head, key: &std::ffi::CStr, value: &std::ffi::CStr) {
-    if let Some(variable) = variables
-        .iter_mut()
-        .find(|variable| variable.key.as_c_str() == key)
-    {
+fn store_variable(variables: &mut variables_head, key: &[u8], value: &[u8]) {
+    let key = key.split(|byte| *byte == 0).next().unwrap();
+    let value = value.split(|byte| *byte == 0).next().unwrap();
+    if let Some(variable) = variables.iter_mut().find(|variable| variable.key == key) {
         variable.value = value.to_owned();
         return;
     }
     // Longest names win; a new equal-length key precedes existing entries.
     let position = variables
         .iter()
-        .position(|variable| key.to_bytes().len() >= variable.key.as_bytes().len())
+        .position(|variable| key.len() >= variable.key.len())
         .unwrap_or(variables.len());
     variables.insert(
         position,
@@ -6242,55 +6241,23 @@ fn store_variable(variables: &mut variables_head, key: &std::ffi::CStr, value: &
 }
 
 /// # Safety
-/// variables is exclusively borrowed, and key/value are readable C strings.
-unsafe fn upsert_variable(
-    variables: *mut variables_head,
-    key: *const libc::c_char,
-    value: *const libc::c_char,
-) {
-    let key_text = std::ffi::CStr::from_ptr(key).to_owned();
-    let value_text = std::ffi::CStr::from_ptr(value).to_owned();
-    let key = key_text.as_ptr();
-    let value = value_text.as_ptr();
+/// variables is a live event-thread parser owner, exclusively accessible for
+/// this call including diagnostics. Input bytes are copied before callbacks.
+unsafe fn upsert_variable(variables: *mut variables_head, key: &[u8], value: &[u8]) {
+    let key_text = key.split(|byte| *byte == 0).next().unwrap().to_vec();
+    let value_text = value.split(|byte| *byte == 0).next().unwrap().to_vec();
     // Snapshot the old value before diagnostics, so no vector borrow survives a
     // logger callback. Preserve the original debug text and ordering.
     let previous = (&*variables)
         .iter()
-        .find(|entry| entry.key.as_c_str() == key_text.as_c_str())
+        .find(|entry| entry.key == key_text)
         .map(|entry| entry.value.clone());
     if let Some(previous) = previous {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = key;
-            let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
-                None,
-            )
-            .to_vec();
-            let log_pointer_2 = previous.as_ptr();
-            let log_value_1 = i3_common::logging::string_bytes(
-                if log_pointer_2.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                },
-                None,
-            )
-            .to_vec();
-            let log_pointer_3 = value;
-            let log_value_2 = i3_common::logging::string_bytes(
-                if log_pointer_3.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_3))
-                },
-                None,
-            )
-            .to_vec();
+            let log_value_0 = key_text.clone();
+            let log_value_1 = previous;
+            let log_value_2 = value_text.clone();
             if let (Ok(log_value_0_text), Ok(log_value_1_text), Ok(log_value_2_text)) = (
                 std::str::from_utf8(&log_value_0),
                 std::str::from_utf8(&log_value_1),
@@ -6314,26 +6281,8 @@ unsafe fn upsert_variable(
     } else {
         {
             // Snapshot native bytes before the logger can dispatch a callback.
-            let log_pointer_1 = key;
-            let log_value_0 = i3_common::logging::string_bytes(
-                if log_pointer_1.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                },
-                None,
-            )
-            .to_vec();
-            let log_pointer_2 = value;
-            let log_value_1 = i3_common::logging::string_bytes(
-                if log_pointer_2.is_null() {
-                    None
-                } else {
-                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                },
-                None,
-            )
-            .to_vec();
+            let log_value_0 = key_text.clone();
+            let log_value_1 = value_text.clone();
             if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
                 std::str::from_utf8(&log_value_0),
                 std::str::from_utf8(&log_value_1),
@@ -6715,8 +6664,8 @@ unsafe fn parse_file_inner(
                 } else {
                     upsert_variable(
                         &raw mut (*ctx).variables,
-                        &raw mut v_key as *mut ::core::ffi::c_char,
-                        &raw mut v_value as *mut ::core::ffi::c_char,
+                        std::ffi::CStr::from_ptr(v_key.as_ptr()).to_bytes(),
+                        std::ffi::CStr::from_ptr(v_value.as_ptr()).to_bytes(),
                     );
                 }
             } else {
@@ -6820,8 +6769,8 @@ unsafe fn parse_file_inner(
                     }
                     upsert_variable(
                         &raw mut (*ctx).variables,
-                        &raw mut v_key_0 as *mut ::core::ffi::c_char,
-                        res_value,
+                        std::ffi::CStr::from_ptr(v_key_0.as_ptr()).to_bytes(),
+                        std::ffi::CStr::from_ptr(res_value).to_bytes(),
                     );
                 }
             }
@@ -6833,7 +6782,7 @@ unsafe fn parse_file_inner(
     let variables: Vec<_> = (*ctx)
         .variables
         .iter()
-        .map(|variable| (variable.key.as_bytes(), variable.value.as_bytes()))
+        .map(|variable| (variable.key.as_slice(), variable.value.as_slice()))
         .collect();
     let expanded = expand_variables(&input, &variables);
     drop(variables);
@@ -7150,16 +7099,16 @@ mod owned_config_tests {
     #[test]
     fn variable_storage_keeps_longest_first_case_sensitive_updates_and_nonrecursive_expansion() {
         let mut variables = Vec::new();
-        store_variable(&mut variables, c"$A", c"short");
-        store_variable(&mut variables, c"$ABC", c"long");
-        store_variable(&mut variables, c"$X", c"$A");
-        store_variable(&mut variables, c"$a", c"case");
-        store_variable(&mut variables, c"$ABC", c"updated");
+        store_variable(&mut variables, b"$A", b"short");
+        store_variable(&mut variables, b"$ABC", b"long");
+        store_variable(&mut variables, b"$X", b"$A");
+        store_variable(&mut variables, b"$a", b"case");
+        store_variable(&mut variables, b"$ABC", b"updated");
         assert_eq!(variables.len(), 4);
-        assert_eq!(variables[0].key.as_c_str(), c"$ABC");
+        assert_eq!(variables[0].key, b"$ABC");
         let pairs: Vec<_> = variables
             .iter()
-            .map(|entry| (entry.key.as_bytes(), entry.value.as_bytes()))
+            .map(|entry| (entry.key.as_slice(), entry.value.as_slice()))
             .collect();
         assert_eq!(expand_variables(b"$abc $A $X", &pairs), b"updated case $A");
         assert_eq!(expand_variables(b"nothing\xff", &pairs), b"nothing\xff");

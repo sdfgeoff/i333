@@ -165,8 +165,8 @@ pub struct includedfiles_head {
 /// Owned parser variables; these never reside in the zeroed global Config POD.
 #[derive(Debug)]
 pub struct Variable {
-    pub key: std::ffi::CString,
-    pub value: std::ffi::CString,
+    pub key: Vec<u8>,
+    pub value: Vec<u8>,
 }
 pub type variables_head = Vec<Variable>;
 
