@@ -4,43 +4,19 @@ use crate::flags::AssignmentKind;
  * © 2009 Michael Stapelberg and contributors (see also: LICENSE)
  * Assignments for specific windows (for_window).
  */
-use std::ptr::NonNull;
 
 use crate::application::assignments;
-use crate::commands_parser::{command_result_free, parse_command};
+use crate::commands_parser::parse_command;
 use crate::r#match::match_matches_window;
 use crate::tree::tree_render;
 use crate::types::{Assignment, AssignmentDest, Window};
 
-// Shared with the command parser and IPC; allocation remains malloc-compatible.
-#[derive(Copy, Clone)]
-#[repr(C)]
+/// Owned command-parser outcome, independent of the mutable window graph.
+#[derive(Debug, Default)]
 pub struct CommandResult {
     pub parse_error: bool,
-    pub error_message: *mut libc::c_char,
+    pub error_message: Option<Vec<u8>>,
     pub needs_tree_render: bool,
-}
-
-struct OwnedCommandResult(NonNull<CommandResult>);
-impl OwnedCommandResult {
-    /// The parser mutates the live tree and can reload the assignment list.
-    /// The caller must uphold parse_command's event-thread/tree contracts.
-    unsafe fn execute(command: &[u8]) -> Self {
-        let result = unsafe { parse_command(command, None, std::ptr::null_mut()) };
-        Self(NonNull::new(result).expect("parse_command returns an allocated result"))
-    }
-    fn needs_tree_render(&self) -> bool {
-        // The parser transferred this allocation to us, and it remains owned
-        // until Drop. No Assignment/Window borrow survives command execution.
-        unsafe { self.0.as_ref().needs_tree_render }
-    }
-}
-impl Drop for OwnedCommandResult {
-    fn drop(&mut self) {
-        unsafe {
-            command_result_free(self.0.as_ptr());
-        }
-    }
 }
 
 fn window_command(id: u32, command: &[u8]) -> Vec<u8> {
@@ -116,8 +92,8 @@ pub unsafe fn run_assignments(window: *mut Window) {
                     expanded
                 };
                 {
-                    let result = OwnedCommandResult::execute(&command);
-                    needs_tree_render |= result.needs_tree_render();
+                    let result = parse_command(&command, None, std::ptr::null_mut());
+                    needs_tree_render |= result.needs_tree_render;
                 }
                 if old_first_assignment != assignments.tqh_first {
                     break;

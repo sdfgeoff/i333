@@ -3976,11 +3976,18 @@ pub unsafe fn parse_string(walk: *mut *const libc::c_char, as_word: bool) -> *mu
     })
 }
 
+/// Parse and execute commands, returning an owned diagnostic and render flag.
+///
+/// # Safety
+/// Command handlers require exclusive event-thread access to the initialized
+/// window graph and display state. A non-null client must identify a live IPC
+/// client at entry; handlers can reload or replace that state during dispatch.
+/// No borrowed graph data may survive command callbacks.
 pub unsafe fn parse_command(
     input: &[u8],
     output: Option<&mut Vec<u8>>,
     client: *mut ipc_client,
-) -> *mut CommandResult {
+) -> CommandResult {
     // Own bytes before callbacks. The existing private scanner currently uses
     // pointer cursors, so its bounded backing Vec includes one trailing zero.
     let mut input_owner = input.split(|byte| *byte == 0).next().unwrap().to_vec();
@@ -4029,8 +4036,7 @@ pub unsafe fn parse_command(
         },
     };
     cmd_ctx.state = CommandParserState::Initial;
-    let result: *mut CommandResult =
-        scalloc(1_usize, ::core::mem::size_of::<CommandResult>() as usize) as *mut CommandResult;
+    let mut result = CommandResult::default();
     cmd_ctx.command_output.ctx = &raw mut cmd_ctx;
     cmd_ctx.command_output.client = client;
     cmd_ctx.command_output.needs_tree_render = false;
@@ -4144,8 +4150,7 @@ pub unsafe fn parse_command(
         let mut message = b"Expected one of these tokens: ".to_vec();
         message.extend_from_slice(&crate::parser_util::expected_tokens(&names, false));
         let message = std::ffi::CString::new(message).expect("grammar names contain no NUL");
-        let errormessage =
-            i3_common::safewrappers::sstrndup(message.as_ptr(), message.as_bytes().len());
+        let errormessage = message.as_ptr();
         let offset = (walk.offset_from(input) as usize).min(len);
         let mut caret = vec![b' '; len];
         caret[offset..].fill(b'^');
@@ -4220,8 +4225,7 @@ pub unsafe fn parse_command(
                 i3_common::logging::emit(i3_common::logging::Level::Error, &message);
             }
         };
-        (*result).parse_error = true;
-        (*result).error_message = errormessage;
+        result.parse_error = true;
         emit_command_reply(
             &raw mut cmd_ctx.command_output,
             CommandReply::ParseError {
@@ -4230,6 +4234,7 @@ pub unsafe fn parse_command(
                 position: std::ffi::CStr::from_ptr(position),
             },
         );
+        result.error_message = Some(message.into_bytes());
         parser_clear_stack(&raw mut cmd_ctx.stack);
         break;
     }
@@ -4240,7 +4245,7 @@ pub unsafe fn parse_command(
             .expect("requested command output")
             .finish();
     }
-    (*result).needs_tree_render = cmd_ctx.command_output.needs_tree_render;
+    result.needs_tree_render = cmd_ctx.command_output.needs_tree_render;
     while !cmd_ctx.owindows.tqh_first.is_null() {
         let ow: *mut owindow = cmd_ctx.owindows.tqh_first;
         if !(*ow).owindows.tqe_next.is_null() {
@@ -4254,20 +4259,10 @@ pub unsafe fn parse_command(
     result
 }
 
-pub unsafe fn command_result_free(mut result: *mut CommandResult) {
-    if result.is_null() {
-        return;
-    }
-    free((*result).error_message as *mut ::core::ffi::c_void);
-    (*result).error_message = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    free(result as *mut ::core::ffi::c_void);
-    result = ::core::ptr::null_mut::<CommandResult>();
-}
 pub const ERANGE: i32 = 34_i32;
 pub const __LONG_MAX__: i64 = 9223372036854775807_i64;
 
 // Internal helpers use Rust linkage rather than foreign symbol lookup.
-use i3_common::safewrappers::scalloc;
 use i3_common::safewrappers::smalloc;
 
 // Canonical Cairo backend ABI; renderer logic remains local.
@@ -4367,6 +4362,28 @@ pub enum CommandParserState {
 #[cfg(test)]
 mod owned_parser_tests {
     use super::*;
+    #[test]
+    fn command_results_own_errors_after_input_and_subsequent_parses_are_dropped() {
+        let mut output = Vec::new();
+        let result = {
+            let input = b"not-a-command\0ignored".to_vec();
+            // SAFETY: an unknown initial token only touches the local parser
+            // context and immutable grammar; it dispatches no window commands.
+            unsafe { parse_command(&input, Some(&mut output), std::ptr::null_mut()) }
+        };
+        assert!(result.parse_error);
+        assert!(!result.needs_tree_render);
+        let error = result.error_message.as_ref().unwrap().clone();
+        assert!(error.starts_with(b"Expected one of these tokens: "));
+        let reply: serde_json::Value = serde_json::from_slice(&output).unwrap();
+        assert_eq!(reply[0]["input"], "not-a-command");
+        assert_eq!(reply[0]["error"].as_str().unwrap().as_bytes(), error);
+        // The second result and its input die first; the earlier message must
+        // remain independently owned without a native free function.
+        drop(unsafe { parse_command(b"another-unknown-command", None, std::ptr::null_mut()) });
+        assert_eq!(result.error_message.as_ref(), Some(&error));
+    }
+
     #[test]
     fn legacy_string_entry_updates_cursor_and_keeps_malloc_ownership() {
         let input = c"\"a\\\"b\"rest";

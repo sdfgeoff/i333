@@ -13,7 +13,6 @@ use xcb::x;
 
 use crate::application::last_timestamp;
 use crate::bindings::{get_binding_from_event, run_binding};
-use crate::commands_parser::command_result_free;
 
 /// Dispatch a native key event against the current bindings.
 ///
@@ -34,7 +33,7 @@ pub unsafe fn handle_key_press(event: &x::KeyPressEvent) {
     );
     // SAFETY: Exclusive access to the event-thread globals is part of the
     // contract. The event remains live through lookup; a returned binding is
-    // used immediately and the owned command result is freed exactly once.
+    // used immediately; command results own their diagnostic bytes.
     unsafe {
         last_timestamp = time;
         ::log::debug!(
@@ -51,7 +50,6 @@ pub unsafe fn handle_key_press(event: &x::KeyPressEvent) {
         if binding.is_null() {
             return;
         }
-        let result = run_binding(binding, std::ptr::null_mut());
-        command_result_free(result);
+        run_binding(binding, std::ptr::null_mut());
     }
 }

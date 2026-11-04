@@ -1,6 +1,5 @@
 use crate::bindings::get_binding_from_event;
 use crate::bindings::run_binding;
-use crate::commands_parser::command_result_free;
 use crate::con::arena::focus;
 use crate::con::arena::parent::parent_ptr;
 use crate::domains::ContainerType;
@@ -26,8 +25,6 @@ use crate::types::Position;
 // never retain graph references across those callbacks or nested event loops.
 
 pub use crate::application::Binding;
-
-pub use crate::assignments::CommandResult;
 
 unsafe fn tiling_resize_for_border(
     con: *mut Con,
@@ -220,9 +217,9 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
             (*bind).border,
         )
     {
-        let result: *mut CommandResult = run_binding(bind, con);
+        let result = run_binding(bind, con);
         allow_pointer(x::Allow::AsyncPointer, event.time());
-        command_result_free(result);
+        drop(result);
         return;
     }
     // The maintained release event aliases the press record. Preserve the
@@ -401,8 +398,7 @@ pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
                 event.detail(),
             );
             if !bind.is_null() && (*bind).whole_window as i32 != 0 {
-                let result: *mut CommandResult = run_binding(bind, ::core::ptr::null_mut::<Con>());
-                command_result_free(result);
+                run_binding(bind, ::core::ptr::null_mut::<Con>());
             }
         }
         if event.event().resource_id() == root && event.response_type() as i32 == 4 {

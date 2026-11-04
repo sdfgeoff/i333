@@ -4,7 +4,6 @@ use crate::domains::{ContainerType, DockMatch, FullscreenMode, MatchInsertWhere}
 use std::os::unix::ffi::OsStrExt;
 #[path = "ipc_messages.rs"]
 mod messages;
-use crate::commands_parser::command_result_free;
 use crate::commands_parser::parse_command;
 use crate::con::arena::{containers, floating, identity, resolve};
 use crate::config::barconfigs;
@@ -464,14 +463,6 @@ impl CommandReplies {
     }
 }
 
-struct CommandResultOwner(*mut CommandResult);
-impl Drop for CommandResultOwner {
-    fn drop(&mut self) {
-        unsafe {
-            command_result_free(self.0);
-        }
-    }
-}
 unsafe fn handle_run_command(
     client: *mut ipc_client,
     message: *mut u8,
@@ -503,8 +494,8 @@ unsafe fn handle_run_command(
         }
     };
     let mut output = Vec::new();
-    let result = CommandResultOwner(parse_command(&command, Some(&mut output), client));
-    if (*result.0).needs_tree_render {
+    let result = parse_command(&command, Some(&mut output), client);
+    if result.needs_tree_render {
         tree_render();
     }
     drop(result);

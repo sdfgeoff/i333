@@ -1277,7 +1277,7 @@ pub unsafe fn binding_free(bind: *mut Binding) {
     drop(Box::from_raw(bind));
 }
 
-pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResult {
+pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> CommandResult {
     let source = (*bind).command.as_slice();
     let command = if con.is_null() {
         source.to_vec()
@@ -1292,12 +1292,12 @@ pub unsafe fn run_binding(bind: *mut Binding, con: *mut Con) -> *mut CommandResu
     let modename = current_binding_mode
         .clone()
         .unwrap_or_else(|| DEFAULT_BINDING_MODE.to_vec());
-    let result: *mut CommandResult =
+    let result: CommandResult =
         parse_command(&command, None, ::core::ptr::null_mut::<ipc_client>());
-    if (*result).needs_tree_render {
+    if result.needs_tree_render {
         tree_render();
     }
-    if (*result).parse_error {
+    if result.parse_error {
         let error_path = errorfilename.clone();
         let mut pager_bytes = b"i3-sensible-pager \"".to_vec();
         pager_bytes.extend_from_slice(
