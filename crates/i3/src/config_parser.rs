@@ -6275,6 +6275,131 @@ unsafe fn read_config_contents(file: *mut IncludedFile, stream: *mut FILE, size:
     }
 }
 
+const CONFIG_READ_CAPACITY: usize = 4096;
+
+fn config_prefix(bytes: &[u8]) -> &[u8] {
+    bytes.split(|byte| *byte == 0).next().unwrap()
+}
+
+struct ConfigFields {
+    count: i32,
+    key: Vec<u8>,
+    resource: Vec<u8>,
+    value: Vec<u8>,
+}
+
+// Keep the two native scanf formats: locale whitespace, scanset semantics and
+// their field widths are part of configuration compatibility.
+fn config_fields(bytes: &[u8], resource: bool) -> ConfigFields {
+    let native = std::ffi::CString::new(config_prefix(bytes)).unwrap();
+    let mut key = vec![0u8; 512];
+    let mut name = vec![0u8; 512];
+    let mut value = vec![0u8; CONFIG_READ_CAPACITY];
+    let count = unsafe {
+        if resource {
+            sscanf(
+                native.as_ptr(),
+                c"%511s %511s %4095[^\n]".as_ptr(),
+                key.as_mut_ptr().cast::<libc::c_char>(),
+                name.as_mut_ptr().cast::<libc::c_char>(),
+                value.as_mut_ptr().cast::<libc::c_char>(),
+            )
+        } else {
+            sscanf(
+                native.as_ptr(),
+                c"%511s %4095[^\n]".as_ptr(),
+                key.as_mut_ptr().cast::<libc::c_char>(),
+                value.as_mut_ptr().cast::<libc::c_char>(),
+            )
+        }
+    };
+    key.truncate(config_prefix(&key).len());
+    name.truncate(config_prefix(&name).len());
+    value.truncate(config_prefix(&value).len());
+    ConfigFields {
+        count,
+        key,
+        resource: name,
+        value,
+    }
+}
+
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+struct ConfigFragment {
+    bytes: Vec<u8>,
+    key: Vec<u8>,
+    value: Vec<u8>,
+    skip: bool,
+    comment: bool,
+    continued: bool,
+    ignored_comment_continuation: bool,
+    #[cfg(test)]
+    overlong: bool,
+}
+
+struct ConfigPreprocessor {
+    buffer: Vec<u8>,
+    continuation: Option<usize>,
+    previous_key: Vec<u8>,
+}
+impl ConfigPreprocessor {
+    fn new() -> Self {
+        Self {
+            buffer: vec![0; CONFIG_READ_CAPACITY],
+            continuation: None,
+            previous_key: Vec::new(),
+        }
+    }
+
+    /// # Safety
+    /// `stream` is a live readable FILE, exclusively used for this preprocessing
+    /// pass. Only fgets writes into the remaining initialized native byte span.
+    #[deny(unsafe_op_in_unsafe_fn)]
+    unsafe fn read(&mut self, stream: *mut FILE) -> Result<Option<ConfigFragment>, ()> {
+        if unsafe { feof(stream) } != 0 {
+            return Ok(None);
+        }
+        let start = self.continuation.unwrap_or(0);
+        let target = &mut self.buffer[start..];
+        if unsafe { fgets(target.as_mut_ptr().cast(), target.len() as i32, stream) }.is_null() {
+            return if unsafe { feof(stream) } != 0 {
+                Ok(None)
+            } else {
+                Err(())
+            };
+        }
+        let bytes = config_prefix(&self.buffer);
+        let overlong = bytes.last() != Some(&b'\n') && unsafe { feof(stream) } == 0;
+        if overlong {
+            ::log::error!(
+                "ERROR: Your line continuation is too long, it exceeds {} bytes\n",
+                CONFIG_READ_CAPACITY as isize
+            );
+        }
+        let fields = config_fields(bytes, false);
+        // sscanf leaves its first output unchanged on a failed conversion.
+        if fields.count >= 1 {
+            self.previous_key = fields.key;
+        }
+        let skip = fields.count < 1 || self.previous_key.len() < 3;
+        let comment = self.previous_key.first() == Some(&b'#');
+        let continuation = bytes.windows(2).position(|pair| pair == b"\\\n");
+        let continued = continuation.is_some() && !comment;
+        self.continuation = if continued { continuation } else { None };
+        Ok(Some(ConfigFragment {
+            bytes: bytes.to_vec(),
+            key: self.previous_key.clone(),
+            value: fields.value,
+            skip,
+            comment,
+            continued,
+            ignored_comment_continuation: continuation.is_some() && comment,
+            #[cfg(test)]
+            overlong,
+        }))
+    }
+}
+
 unsafe fn parse_file_inner(
     ctx: *mut parser_ctx,
     filename: &std::path::Path,
@@ -6310,250 +6435,120 @@ unsafe fn parse_file_inner(
         return ParseFileResult::Failed;
     }
     rewind(fstr);
-    let mut buffer: [::core::ffi::c_char; 4096] = [0; 4096];
-    let mut key: [::core::ffi::c_char; 512] = [0; 512];
-    let mut value: [::core::ffi::c_char; 4096] = [0; 4096];
-    let mut continuation: *mut ::core::ffi::c_char = ::core::ptr::null_mut::<::core::ffi::c_char>();
-    let mut invalid_sets: bool = false;
+    let mut preprocessor = ConfigPreprocessor::new();
+    let mut invalid_sets = false;
     let mut buffer_contents = Vec::with_capacity(file_size);
-    while feof(fstr) == 0 {
-        if continuation.is_null() {
-            continuation = &raw mut buffer as *mut ::core::ffi::c_char;
+    loop {
+        let fragment = match preprocessor.read(fstr) {
+            Ok(Some(fragment)) => fragment,
+            Ok(None) => break,
+            Err(()) => return ParseFileResult::Failed,
+        };
+        if fragment.continued {
+            continue;
         }
-        if fgets(
-            continuation,
-            (::core::mem::size_of::<[::core::ffi::c_char; 4096]>() as usize).wrapping_sub(
-                continuation.offset_from(&raw mut buffer as *mut ::core::ffi::c_char) as i64
-                    as usize,
-            ) as i32,
-            fstr,
-        )
-        .is_null()
-        {
-            if feof(fstr) != 0 {
-                break;
+        if fragment.ignored_comment_continuation {
+            let bytes = &fragment.bytes[..fragment.bytes.len().saturating_sub(1)];
+            match std::str::from_utf8(bytes) {
+                Ok(text) => ::log::debug!("../src/config_parser.c:parse_file_inner:682 - line continuation in comment is ignored: \"{}\"\n", text),
+                Err(_) => i3_common::logging::emit_parts(i3_common::logging::Level::Debug,
+                    &[b"../src/config_parser.c:parse_file_inner:682 - line continuation in comment is ignored: \"", bytes, b"\"\n"]),
             }
-            return ParseFileResult::Failed;
-        } else {
-            if buffer[strlen(buffer.as_ptr()).saturating_sub(1)] as i32 != '\n' as i32
-                && feof(fstr) == 0
-            {
-                {
-                    let log_value_0 =
-                        (::core::mem::size_of::<[::core::ffi::c_char; 4096]>()) as isize;
-                    ::log::error!(
-                        "ERROR: Your line continuation is too long, it exceeds {} bytes\n",
-                        log_value_0
-                    );
-                };
-            }
-            value[0_usize] = '\0' as i32 as ::core::ffi::c_char;
-            let skip_line: bool = sscanf(
-                &raw mut buffer as *mut ::core::ffi::c_char,
-                c"%511s %4095[^\n]".as_ptr(),
-                &raw mut key as *mut ::core::ffi::c_char,
-                &raw mut value as *mut ::core::ffi::c_char,
-            ) < 1_i32
-                || strlen(&raw mut key as *mut ::core::ffi::c_char) < 3_usize;
-            let comment: bool = key[0_usize] as i32 == '#' as i32;
-            value[4095_usize] = '\n' as i32 as ::core::ffi::c_char;
-            continuation = strstr(
-                &raw mut buffer as *mut ::core::ffi::c_char,
-                c"\\\n".as_ptr(),
-            );
-            if !continuation.is_null() {
-                if !comment {
-                    continue;
-                }
+        }
+        buffer_contents.extend_from_slice(&fragment.bytes);
+        if fragment.skip || fragment.comment {
+            continue;
+        }
+        let key = fragment.key;
+        let value = fragment.value;
+        if crate::util::text_eq_ignore_case(&key, b"set") && !value.is_empty() {
+            let fields = config_fields(&value, false);
+            let v_key = fields.key;
+            let v_value = fields.value;
+            if fields.count < 1 {
                 {
                     // Snapshot native bytes before the logger can dispatch a callback.
-                    let log_precision_0 =
-                        (strlen(&raw mut buffer as *mut ::core::ffi::c_char) as i32 - 1_i32) as i32;
-                    let log_pointer_1 = &raw mut buffer as *mut ::core::ffi::c_char;
-                    let log_value_0 = i3_common::logging::string_bytes(
-                        (if log_pointer_1.is_null() {
-                            None
-                        } else {
-                            Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                        })
-                        .map(std::ffi::CStr::to_bytes),
-                        usize::try_from(log_precision_0).ok(),
-                    )
-                    .to_vec();
+                    let log_value_0 = value.clone();
                     if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
-                        ::log::debug!("../src/config_parser.c:parse_file_inner:682 - line continuation in comment is ignored: \"{}\"\n", log_value_0_text);
+                        ::log::error!(
+                            "ERROR: Failed to parse variable specification '{}', skipping it.\n",
+                            log_value_0_text
+                        );
                     } else {
                         let mut message = Vec::new();
-                        message.extend_from_slice("../src/config_parser.c:parse_file_inner:682 - line continuation in comment is ignored: \"".as_bytes());
+                        message.extend_from_slice(
+                            "ERROR: Failed to parse variable specification '".as_bytes(),
+                        );
                         message.extend_from_slice(&log_value_0);
-                        message.extend_from_slice("\"\n".as_bytes());
-                        i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+                        message.extend_from_slice("', skipping it.\n".as_bytes());
+                        i3_common::logging::emit(i3_common::logging::Level::Error, &message);
                     }
                 };
-                continuation = ::core::ptr::null_mut::<::core::ffi::c_char>();
+                invalid_sets = true;
+            } else if v_key.first() != Some(&b'$') {
+                ::log::error!("ERROR: Malformed variable assignment, name has to start with $\n");
+                invalid_sets = true;
+            } else {
+                upsert_variable(&raw mut (*ctx).variables, &v_key, &v_value);
             }
-            buffer_contents.extend_from_slice(std::ffi::CStr::from_ptr(buffer.as_ptr()).to_bytes());
-            if skip_line || comment {
+        } else {
+            if !crate::util::text_eq_ignore_case(&key, b"set_from_resource") {
                 continue;
             }
-            if strcasecmp(&raw mut key as *mut ::core::ffi::c_char, c"set".as_ptr()) == 0_i32
-                && *(&raw mut value as *mut ::core::ffi::c_char) as i32 != '\0' as i32
-            {
-                let mut v_key: [::core::ffi::c_char; 512] = [0; 512];
-                let mut v_value: [::core::ffi::c_char; 4096] = [0; 4096];
-                if sscanf(
-                    &raw mut value as *mut ::core::ffi::c_char,
-                    c"%511s %4095[^\n]".as_ptr(),
-                    &raw mut v_key as *mut ::core::ffi::c_char,
-                    &raw mut v_value as *mut ::core::ffi::c_char,
-                ) < 1_i32
+            let fields = config_fields(&value, true);
+            let v_key_0 = fields.key;
+            let res_name = fields.resource;
+            let fallback = fields.value;
+            if fields.count < 1 {
                 {
-                    {
-                        // Snapshot native bytes before the logger can dispatch a callback.
-                        let log_pointer_1 = &raw mut value as *mut ::core::ffi::c_char;
-                        let log_value_0 = i3_common::logging::string_bytes(
-                            (if log_pointer_1.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec();
-                        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
-                            ::log::error!("ERROR: Failed to parse variable specification '{}', skipping it.\n", log_value_0_text);
-                        } else {
-                            let mut message = Vec::new();
-                            message.extend_from_slice(
-                                "ERROR: Failed to parse variable specification '".as_bytes(),
-                            );
-                            message.extend_from_slice(&log_value_0);
-                            message.extend_from_slice("', skipping it.\n".as_bytes());
-                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
-                        }
-                    };
-                    invalid_sets = true;
-                } else if v_key[0_usize] as i32 != '$' as i32 {
-                    ::log::error!(
-                        "ERROR: Malformed variable assignment, name has to start with $\n"
-                    );
-                    invalid_sets = true;
-                } else {
-                    upsert_variable(
-                        &raw mut (*ctx).variables,
-                        std::ffi::CStr::from_ptr(v_key.as_ptr()).to_bytes(),
-                        std::ffi::CStr::from_ptr(v_value.as_ptr()).to_bytes(),
-                    );
-                }
-            } else {
-                if !(strcasecmp(
-                    &raw mut key as *mut ::core::ffi::c_char,
-                    c"set_from_resource".as_ptr(),
-                ) == 0_i32)
-                {
-                    continue;
-                }
-                let mut res_name: [::core::ffi::c_char; 512] = [0; 512];
-                let mut v_key_0: [::core::ffi::c_char; 512] = [0; 512];
-                let mut fallback: [::core::ffi::c_char; 4096] = [0; 4096];
-                fallback[0_usize] = '\0' as i32 as ::core::ffi::c_char;
-                if sscanf(
-                    &raw mut value as *mut ::core::ffi::c_char,
-                    c"%511s %511s %4095[^\n]".as_ptr(),
-                    &raw mut v_key_0 as *mut ::core::ffi::c_char,
-                    &raw mut res_name as *mut ::core::ffi::c_char,
-                    &raw mut fallback as *mut ::core::ffi::c_char,
-                ) < 1_i32
-                {
-                    {
-                        // Snapshot native bytes before the logger can dispatch a callback.
-                        let log_pointer_1 = &raw mut value as *mut ::core::ffi::c_char;
-                        let log_value_0 = i3_common::logging::string_bytes(
-                            (if log_pointer_1.is_null() {
-                                None
-                            } else {
-                                Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                            })
-                            .map(std::ffi::CStr::to_bytes),
-                            None,
-                        )
-                        .to_vec();
-                        if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
-                            ::log::error!("ERROR: Failed to parse resource specification '{}', skipping it.\n", log_value_0_text);
-                        } else {
-                            let mut message = Vec::new();
-                            message.extend_from_slice(
-                                "ERROR: Failed to parse resource specification '".as_bytes(),
-                            );
-                            message.extend_from_slice(&log_value_0);
-                            message.extend_from_slice("', skipping it.\n".as_bytes());
-                            i3_common::logging::emit(i3_common::logging::Level::Error, &message);
-                        }
-                    };
-                    invalid_sets = true;
-                } else if v_key_0[0_usize] as i32 != '$' as i32 {
-                    ::log::error!(
-                        "ERROR: Malformed variable assignment, name has to start with $\n"
-                    );
-                    invalid_sets = true;
-                } else {
-                    let resource_name = std::ffi::CStr::from_ptr(res_name.as_ptr()).to_bytes();
-                    let res_value = if let Some(resource) = resources.get(resource_name) {
-                        resource
+                    // Snapshot native bytes before the logger can dispatch a callback.
+                    let log_value_0 = value.clone();
+                    if let (Ok(log_value_0_text),) = (std::str::from_utf8(&log_value_0),) {
+                        ::log::error!(
+                            "ERROR: Failed to parse resource specification '{}', skipping it.\n",
+                            log_value_0_text
+                        );
                     } else {
-                        {
-                            // Snapshot native bytes before the logger can dispatch a callback.
-                            let log_pointer_1 = &raw mut res_name as *mut ::core::ffi::c_char;
-                            let log_value_0 = i3_common::logging::string_bytes(
-                                (if log_pointer_1.is_null() {
-                                    None
-                                } else {
-                                    Some(std::ffi::CStr::from_ptr(log_pointer_1))
-                                })
-                                .map(std::ffi::CStr::to_bytes),
-                                None,
-                            )
-                            .to_vec();
-                            let log_pointer_2 = &raw mut fallback as *mut ::core::ffi::c_char;
-                            let log_value_1 = i3_common::logging::string_bytes(
-                                (if log_pointer_2.is_null() {
-                                    None
-                                } else {
-                                    Some(std::ffi::CStr::from_ptr(log_pointer_2))
-                                })
-                                .map(std::ffi::CStr::to_bytes),
-                                None,
-                            )
-                            .to_vec();
-                            if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
-                                std::str::from_utf8(&log_value_0),
-                                std::str::from_utf8(&log_value_1),
-                            ) {
-                                ::log::debug!("../src/config_parser.c:parse_file_inner:738 - Could not get resource '{}', using fallback '{}'.\n", log_value_0_text, log_value_1_text);
-                            } else {
-                                let mut message = Vec::new();
-                                message.extend_from_slice("../src/config_parser.c:parse_file_inner:738 - Could not get resource '".as_bytes());
-                                message.extend_from_slice(&log_value_0);
-                                message.extend_from_slice("', using fallback '".as_bytes());
-                                message.extend_from_slice(&log_value_1);
-                                message.extend_from_slice("'.\n".as_bytes());
-                                i3_common::logging::emit(
-                                    i3_common::logging::Level::Debug,
-                                    &message,
-                                );
-                            }
-                        };
-                        std::ffi::CStr::from_ptr(fallback.as_ptr())
-                            .to_bytes()
-                            .to_vec()
+                        let mut message = Vec::new();
+                        message.extend_from_slice(
+                            "ERROR: Failed to parse resource specification '".as_bytes(),
+                        );
+                        message.extend_from_slice(&log_value_0);
+                        message.extend_from_slice("', skipping it.\n".as_bytes());
+                        i3_common::logging::emit(i3_common::logging::Level::Error, &message);
+                    }
+                };
+                invalid_sets = true;
+            } else if v_key_0.first() != Some(&b'$') {
+                ::log::error!("ERROR: Malformed variable assignment, name has to start with $\n");
+                invalid_sets = true;
+            } else {
+                let resource_name = res_name.as_slice();
+                let res_value = if let Some(resource) = resources.get(resource_name) {
+                    resource
+                } else {
+                    {
+                        // Snapshot native bytes before the logger can dispatch a callback.
+                        let log_value_0 = res_name.clone();
+                        let log_value_1 = fallback.clone();
+                        if let (Ok(log_value_0_text), Ok(log_value_1_text)) = (
+                            std::str::from_utf8(&log_value_0),
+                            std::str::from_utf8(&log_value_1),
+                        ) {
+                            ::log::debug!("../src/config_parser.c:parse_file_inner:738 - Could not get resource '{}', using fallback '{}'.\n", log_value_0_text, log_value_1_text);
+                        } else {
+                            let mut message = Vec::new();
+                            message.extend_from_slice("../src/config_parser.c:parse_file_inner:738 - Could not get resource '".as_bytes());
+                            message.extend_from_slice(&log_value_0);
+                            message.extend_from_slice("', using fallback '".as_bytes());
+                            message.extend_from_slice(&log_value_1);
+                            message.extend_from_slice("'.\n".as_bytes());
+                            i3_common::logging::emit(i3_common::logging::Level::Debug, &message);
+                        }
                     };
-                    upsert_variable(
-                        &raw mut (*ctx).variables,
-                        std::ffi::CStr::from_ptr(v_key_0.as_ptr()).to_bytes(),
-                        &res_value,
-                    );
-                }
+                    fallback.clone()
+                };
+                upsert_variable(&raw mut (*ctx).variables, &v_key_0, &res_value);
             }
         }
     }
@@ -6835,6 +6830,191 @@ pub enum ConfigParserState {
 
 #[cfg(test)]
 mod owned_config_tests {
+    fn preprocessing_trace(bytes: &[u8], native: bool) -> Vec<super::ConfigFragment> {
+        let mut input = bytes.to_vec();
+        if input.is_empty() {
+            input.push(0);
+        }
+        let raw = unsafe { libc::fmemopen(input.as_mut_ptr().cast(), bytes.len(), c"r".as_ptr()) };
+        assert!(!raw.is_null());
+        let stream = super::ConfigFile(raw);
+        let mut result = Vec::new();
+        if !native {
+            let mut state = super::ConfigPreprocessor::new();
+            while let Some(fragment) = unsafe { state.read(stream.0).unwrap() } {
+                result.push(fragment);
+            }
+            return result;
+        }
+        // Independent oracle: the retired fgets/scanf/strstr pointer loop,
+        // including persistent scratch outputs and the reduced read capacity.
+        unsafe {
+            let mut buffer = [0 as libc::c_char; 4096];
+            let mut key = [0 as libc::c_char; 512];
+            let mut value = [0 as libc::c_char; 4096];
+            let mut continuation: *mut libc::c_char = std::ptr::null_mut();
+            while libc::feof(stream.0) == 0 {
+                if continuation.is_null() {
+                    continuation = buffer.as_mut_ptr();
+                }
+                let remaining = 4096 - continuation.offset_from(buffer.as_ptr()) as usize;
+                if libc::fgets(continuation, remaining as i32, stream.0).is_null() {
+                    assert_ne!(libc::feof(stream.0), 0);
+                    break;
+                }
+                let length = libc::strlen(buffer.as_ptr());
+                let overlong = buffer[length.saturating_sub(1)] != b'\n' as libc::c_char
+                    && libc::feof(stream.0) == 0;
+                value[0] = 0;
+                let count = libc::sscanf(
+                    buffer.as_ptr(),
+                    c"%511s %4095[^\n]".as_ptr(),
+                    key.as_mut_ptr(),
+                    value.as_mut_ptr(),
+                );
+                let skip = count < 1 || libc::strlen(key.as_ptr()) < 3;
+                let comment = key[0] == b'#' as libc::c_char;
+                value[4095] = b'\n' as libc::c_char;
+                continuation = libc::strstr(buffer.as_ptr(), c"\\\n".as_ptr());
+                let continued = !continuation.is_null() && !comment;
+                let ignored_comment_continuation = !continuation.is_null() && comment;
+                if comment {
+                    continuation = std::ptr::null_mut();
+                }
+                result.push(super::ConfigFragment {
+                    bytes: std::ffi::CStr::from_ptr(buffer.as_ptr())
+                        .to_bytes()
+                        .to_vec(),
+                    key: std::ffi::CStr::from_ptr(key.as_ptr()).to_bytes().to_vec(),
+                    value: std::ffi::CStr::from_ptr(value.as_ptr()).to_bytes().to_vec(),
+                    skip,
+                    comment,
+                    continued,
+                    ignored_comment_continuation,
+                    overlong,
+                });
+            }
+        }
+        result
+    }
+
+    #[test]
+    fn owned_preprocessing_matches_native_chunks_continuations_and_scan_scratch() {
+        let mut corpus = vec![
+            Vec::new(),
+            b"set $x value".to_vec(),
+            b"set $x a\\\nb\n".to_vec(),
+            b"# comment\\\n\nset $x value\n".to_vec(),
+            b"# comment\n\0\\\nignored\nset $x \xff\n".to_vec(),
+            b"set $x before\0ignored\\\nset $y after\n".to_vec(),
+            b"\x0b\x0cset\t$x\r\nset_from_resource $r\nset $missing\n".to_vec(),
+            b"\\\n\\\nset $x joined\n".to_vec(),
+        ];
+        for length in [4093, 4094, 4095, 4096, 8190] {
+            corpus.push(vec![b'x'; length]);
+            let mut line = vec![b'x'; length];
+            line.push(b'\n');
+            corpus.push(line);
+        }
+        for prefix in [0, 1, 511, 4092, 4093] {
+            let mut line = b"set $x ".to_vec();
+            line.extend(std::iter::repeat_n(b'a', prefix));
+            line.extend_from_slice(b"\\\ncontinued\n");
+            corpus.push(line);
+        }
+        for input in corpus {
+            assert_eq!(
+                preprocessing_trace(&input, false),
+                preprocessing_trace(&input, true),
+                "input length {}: {:?}",
+                input.len(),
+                &input[..input.len().min(48)]
+            );
+        }
+        let exact = preprocessing_trace(&vec![b'x'; 4095], false);
+        assert!(exact[0].overlong);
+        let short = preprocessing_trace(&vec![b'x'; 4094], false);
+        assert!(!short[0].overlong);
+    }
+
+    #[test]
+    fn preprocessing_read_failure_retains_previous_fragment_state() {
+        let mut source = b"# retained\\\n".to_vec();
+        let raw =
+            unsafe { libc::fmemopen(source.as_mut_ptr().cast(), source.len(), c"r".as_ptr()) };
+        assert!(!raw.is_null());
+        let input = super::ConfigFile(raw);
+        let mut state = super::ConfigPreprocessor::new();
+        assert!(unsafe { state.read(input.0) }.unwrap().is_some());
+        let before = (
+            state.buffer.clone(),
+            state.previous_key.clone(),
+            state.continuation,
+        );
+        let mut output_bytes = [0u8; 8];
+        let raw = unsafe {
+            libc::fmemopen(
+                output_bytes.as_mut_ptr().cast(),
+                output_bytes.len(),
+                c"w".as_ptr(),
+            )
+        };
+        assert!(!raw.is_null());
+        let output = super::ConfigFile(raw);
+        assert!(unsafe { state.read(output.0) }.is_err());
+        assert_eq!(
+            std::io::Error::last_os_error().raw_os_error(),
+            Some(libc::EBADF)
+        );
+        assert_eq!(
+            (state.buffer, state.previous_key, state.continuation),
+            before
+        );
+    }
+
+    #[test]
+    fn owned_scan_fields_keep_native_widths_whitespace_missing_values_and_prefixes() {
+        let fields = super::config_fields(b"\x0b\x0cset\t$x value\r\n", false);
+        assert_eq!(
+            (fields.count, fields.key.as_slice(), fields.value.as_slice()),
+            (2, b"set".as_slice(), b"$x value\r".as_slice())
+        );
+        let fields = super::config_fields(b"$x", false);
+        assert_eq!(
+            (fields.count, fields.key.as_slice(), fields.value.as_slice()),
+            (1, b"$x".as_slice(), b"".as_slice())
+        );
+        let fields = super::config_fields(b"$r resource.name fallback\0ignored", true);
+        assert_eq!(
+            (
+                fields.count,
+                fields.key.as_slice(),
+                fields.resource.as_slice(),
+                fields.value.as_slice()
+            ),
+            (
+                3,
+                b"$r".as_slice(),
+                b"resource.name".as_slice(),
+                b"fallback".as_slice()
+            )
+        );
+        let fields = super::config_fields(b"$r", true);
+        assert_eq!(
+            (
+                fields.count,
+                fields.resource.as_slice(),
+                fields.value.as_slice()
+            ),
+            (1, b"".as_slice(), b"".as_slice())
+        );
+        let mut wide = vec![b'k'; 512];
+        wide.extend_from_slice(b" tail");
+        let fields = super::config_fields(&wide, false);
+        assert_eq!(fields.key.len(), 511);
+        assert_eq!(fields.value, b"k tail");
+    }
+
     #[test]
     fn owned_file_reads_keep_partial_zero_tail_binary_suffix_and_empty_state() {
         let mut file = crate::config::IncludedFile::new(std::path::PathBuf::from(
