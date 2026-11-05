@@ -63,7 +63,7 @@ pub struct i3_ipc_header {
 }
 pub type i3_ipc_header_t = i3_ipc_header;
 pub use crate::application::ipc_client;
-pub type handler_t = Option<unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()>;
+pub type handler_t = Option<unsafe fn(*mut ipc_client, &[u8])>;
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub struct ipc_client_head {
@@ -457,15 +457,8 @@ impl CommandReplies {
     }
 }
 
-unsafe fn handle_run_command(
-    client: *mut ipc_client,
-    message: *mut u8,
-    _: i32,
-    message_size: u32,
-    _: u32,
-) {
-    let bytes = std::slice::from_raw_parts(message, message_size as usize);
-    let prefix = bytes.split(|byte| *byte == 0).next().unwrap();
+unsafe fn handle_run_command(client: *mut ipc_client, message: &[u8]) {
+    let prefix = message.split(|byte| *byte == 0).next().unwrap();
     let command = prefix.to_vec();
     let token = ClientToken::capture(client);
     {
@@ -487,6 +480,9 @@ unsafe fn handle_run_command(
             );
         }
     };
+    if !token.live() {
+        return;
+    }
     let mut output = Vec::new();
     let result = parse_command(&command, Some(&mut output), client);
     if result.needs_tree_render {
@@ -1119,13 +1115,7 @@ unsafe fn snapshot_bar_config(config: *mut Barconfig) -> messages::BarConfig {
     }
 }
 
-unsafe fn handle_tree(
-    client: *mut ipc_client,
-    message: *mut u8,
-    size: i32,
-    message_size: u32,
-    message_type: u32,
-) {
+unsafe fn handle_tree(client: *mut ipc_client, _: &[u8]) {
     let locale = NumericLocale::c();
     let payload = node_payload(croot, false);
     drop(locale);
@@ -1137,13 +1127,7 @@ unsafe fn handle_tree(
         payload.as_ptr(),
     );
 }
-unsafe fn handle_get_workspaces(
-    client: *mut ipc_client,
-    message: *mut u8,
-    size: i32,
-    message_size: u32,
-    message_type: u32,
-) {
+unsafe fn handle_get_workspaces(client: *mut ipc_client, _: &[u8]) {
     let mut workspaces = Vec::new();
     let focused_workspace = con_get_workspace(focused);
     let mut output = nodes::first_ptr(croot);
@@ -1176,13 +1160,7 @@ unsafe fn handle_get_workspaces(
     }
     send_typed_reply(client, I3_IPC_REPLY_TYPE_WORKSPACES as u32, &workspaces);
 }
-unsafe fn handle_get_outputs(
-    client: *mut ipc_client,
-    message: *mut u8,
-    size: i32,
-    message_size: u32,
-    message_type: u32,
-) {
+unsafe fn handle_get_outputs(client: *mut ipc_client, _: &[u8]) {
     let mut result = Vec::new();
     let mut output = outputs.tqh_first;
     while !output.is_null() {
@@ -1206,13 +1184,7 @@ unsafe fn handle_get_outputs(
     }
     send_typed_reply(client, I3_IPC_REPLY_TYPE_OUTPUTS as u32, &result);
 }
-unsafe fn handle_get_marks(
-    client: *mut ipc_client,
-    message: *mut u8,
-    size: i32,
-    message_size: u32,
-    message_type: u32,
-) {
+unsafe fn handle_get_marks(client: *mut ipc_client, _: &[u8]) {
     let mut marks = Vec::new();
     for id in containers() {
         let Some(con) = resolve(id) else { continue };
@@ -1224,13 +1196,7 @@ unsafe fn handle_get_marks(
     }
     send_typed_reply(client, I3_IPC_REPLY_TYPE_MARKS as u32, &marks);
 }
-unsafe fn handle_get_version(
-    client: *mut ipc_client,
-    message: *mut u8,
-    size: i32,
-    message_size: u32,
-    message_type: u32,
-) {
+unsafe fn handle_get_version(client: *mut ipc_client, _: &[u8]) {
     let mut included_config_file_names = Vec::new();
     let mut file = included_files.tqh_first;
     while !file.is_null() {
@@ -1262,14 +1228,9 @@ unsafe fn handle_get_version(
     };
     send_typed_reply(client, I3_IPC_REPLY_TYPE_VERSION as u32, &reply);
 }
-unsafe fn handle_get_bar_config(
-    client: *mut ipc_client,
-    message: *mut u8,
-    size: i32,
-    message_size: u32,
-    message_type: u32,
-) {
-    if message_size == 0 {
+unsafe fn handle_get_bar_config(client: *mut ipc_client, message: &[u8]) {
+    let token = ClientToken::capture(client);
+    if message.is_empty() {
         let mut names = Vec::new();
         let mut current = barconfigs.tqh_first;
         while !current.is_null() {
@@ -1279,8 +1240,7 @@ unsafe fn handle_get_bar_config(
         send_typed_reply(client, I3_IPC_REPLY_TYPE_BAR_CONFIG as u32, &names);
         return;
     }
-    let bar_bytes = std::slice::from_raw_parts(message, message_size as usize);
-    let bar_id = bar_bytes.split(|byte| *byte == 0).next().unwrap().to_vec();
+    let bar_id = message.split(|byte| *byte == 0).next().unwrap().to_vec();
     {
         // Snapshot native bytes before the logger can dispatch a callback.
         let log_value_0 = bar_id.clone();
@@ -1300,6 +1260,9 @@ unsafe fn handle_get_bar_config(
             );
         }
     };
+    if !token.live() {
+        return;
+    }
     let mut current_0: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     let mut config: *mut Barconfig = ::core::ptr::null_mut::<Barconfig>();
     current_0 = barconfigs.tqh_first;
@@ -1324,13 +1287,7 @@ unsafe fn handle_get_bar_config(
         payload_0.as_ptr(),
     );
 }
-unsafe fn handle_get_binding_modes(
-    client: *mut ipc_client,
-    message: *mut u8,
-    size: i32,
-    message_size: u32,
-    message_type: u32,
-) {
+unsafe fn handle_get_binding_modes(client: *mut ipc_client, _: &[u8]) {
     let mut names = Vec::new();
     let mut mode = modes.slh_first;
     while !mode.is_null() {
@@ -1360,19 +1317,16 @@ fn parse_subscriptions(
     drop(parser);
     (Rc::try_unwrap(events).unwrap().into_inner(), result)
 }
-unsafe fn handle_subscribe(
-    client: *mut ipc_client,
-    message: *mut u8,
-    _: i32,
-    message_size: u32,
-    _: u32,
-) {
-    let bytes = std::slice::from_raw_parts(message, message_size as usize);
-    let (mut events, result) = parse_subscriptions(bytes);
+unsafe fn handle_subscribe(client: *mut ipc_client, message: &[u8]) {
+    let token = ClientToken::capture(client);
+    let (mut events, result) = parse_subscriptions(message);
     // Legacy subscription callbacks committed before a later parse error.
     (*client).events.append(&mut events);
     if let Err(error) = result {
         ::log::error!("ERROR: YAJL parse error: {error}\n\n");
+        if !token.live() {
+            return;
+        }
         ipc_send_client_message(
             client,
             17,
@@ -1398,13 +1352,7 @@ unsafe fn handle_subscribe(
         );
     }
 }
-unsafe fn handle_get_config(
-    client: *mut ipc_client,
-    message: *mut u8,
-    size: i32,
-    message_size: u32,
-    message_type: u32,
-) {
+unsafe fn handle_get_config(client: *mut ipc_client, _: &[u8]) {
     let mut configs = Vec::new();
     let first = included_files.tqh_first;
     let config = messages::NativeText::bytes(
@@ -1436,21 +1384,16 @@ unsafe fn handle_get_config(
     };
     send_typed_reply(client, I3_IPC_REPLY_TYPE_CONFIG as u32, &reply);
 }
-unsafe fn handle_send_tick(
-    client: *mut ipc_client,
-    message: *mut u8,
-    size: i32,
-    message_size: u32,
-    message_type: u32,
-) {
+unsafe fn handle_send_tick(client: *mut ipc_client, message: &[u8]) {
+    let token = ClientToken::capture(client);
     let event = messages::Tick {
         first: false,
-        payload: messages::NativeText::bytes(std::slice::from_raw_parts(
-            message,
-            message_size as usize,
-        )),
+        payload: messages::NativeText::bytes(message),
     };
     send_typed_event("tick", I3_IPC_EVENT_TICK as u32, &event);
+    if !token.live() {
+        return;
+    }
 
     let reply: *const ::core::ffi::c_char = c"{\"success\":true}".as_ptr();
     ipc_send_client_message(
@@ -1511,15 +1454,9 @@ fn parse_sync(message: &[u8]) -> Result<SyncRequest, i3_common::json_stream::Par
     drop(parser);
     Ok(Rc::try_unwrap(state).unwrap().into_inner())
 }
-unsafe fn handle_sync(
-    client: *mut ipc_client,
-    message: *mut u8,
-    _: i32,
-    message_size: u32,
-    _: u32,
-) {
+unsafe fn handle_sync(client: *mut ipc_client, message: &[u8]) {
     let token = ClientToken::capture(client);
-    let parsed = parse_sync(std::slice::from_raw_parts(message, message_size as usize));
+    let parsed = parse_sync(message);
     let success = if let Ok(state) = parsed {
         sync_respond(state.window, state.rnd);
         true
@@ -1543,13 +1480,7 @@ unsafe fn handle_sync(
         reply.as_ptr(),
     );
 }
-unsafe fn handle_get_binding_state(
-    client: *mut ipc_client,
-    message: *mut u8,
-    size: i32,
-    message_size: u32,
-    message_type: u32,
-) {
+unsafe fn handle_get_binding_state(client: *mut ipc_client, _: &[u8]) {
     let reply = messages::BindingState {
         name: messages::NativeText::bytes(current_binding_mode.as_deref().unwrap_or(b"default")),
     };
@@ -1557,19 +1488,19 @@ unsafe fn handle_get_binding_state(
 }
 
 pub const handlers: [handler_t; 13] = [
-    Some(handle_run_command as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_get_workspaces as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_subscribe as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_get_outputs as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_tree as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_get_marks as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_get_bar_config as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_get_version as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_get_binding_modes as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_get_config as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_send_tick as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_sync as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
-    Some(handle_get_binding_state as unsafe fn(*mut ipc_client, *mut u8, i32, u32, u32) -> ()),
+    Some(handle_run_command),
+    Some(handle_get_workspaces),
+    Some(handle_subscribe),
+    Some(handle_get_outputs),
+    Some(handle_tree),
+    Some(handle_get_marks),
+    Some(handle_get_bar_config),
+    Some(handle_get_version),
+    Some(handle_get_binding_modes),
+    Some(handle_get_config),
+    Some(handle_send_tick),
+    Some(handle_sync),
+    Some(handle_get_binding_state),
 ];
 unsafe extern "C" fn ipc_receive_message(_: *mut ev_loop, w: *mut ev_io, _: libc::c_int) {
     let client = (*w).data.cast::<ipc_client>();
@@ -1583,7 +1514,7 @@ unsafe extern "C" fn ipc_receive_message(_: *mut ev_loop, w: *mut ev_io, _: libc
             .expect("IPC client owns its stream");
         receive_message_retry_payload(stream)
     };
-    let mut message = match received {
+    let message = match received {
         Ok(message) => message,
         Err(error) => {
             let token = ClientToken::capture(client);
@@ -1598,13 +1529,9 @@ unsafe extern "C" fn ipc_receive_message(_: *mut ev_loop, w: *mut ev_io, _: libc
     };
     let message_type = message.message_type;
     if let Some(handler) = handlers.get(message_type as usize).copied().flatten() {
-        handler(
-            client,
-            message.payload.as_mut_ptr(),
-            0,
-            message.payload.len() as u32,
-            message_type,
-        );
+        // The received envelope owns these bytes independently of the client.
+        // Keep it alive across handlers that may disconnect or reload clients.
+        handler(client, &message.payload);
     } else {
         ::log::debug!(
             "../src/ipc.c:ipc_receive_message:1468 - Unhandled message type: {}\n",
@@ -2105,6 +2032,119 @@ mod client_lifetime_tests {
                 !token.live(),
                 "EOF closes the owned stream and its watchers"
             );
+            // The receive envelope remains independent of client storage when
+            // a handler's diagnostic disconnects and replaces that client.
+            static OBSERVED_COMMAND: std::sync::atomic::AtomicBool =
+                std::sync::atomic::AtomicBool::new(false);
+            fn replace_during_command(level: i3_common::logging::Level, bytes: &[u8]) {
+                if level == i3_common::logging::Level::Verbose {
+                    assert_eq!(bytes, b"IPC: received: *nop*\n");
+                    OBSERVED_COMMAND.store(true, std::sync::atomic::Ordering::Relaxed);
+                    unsafe {
+                        free_ipc_client(all_clients.tqh_first, -1);
+                        let (stream, peer) = std::os::unix::net::UnixStream::pair().unwrap();
+                        let replacement = ipc_new_client_on_fd(main_loop, stream.into_raw_fd());
+                        (*replacement).buffer = b"replacement untouched".to_vec();
+                        drop(peer);
+                    }
+                }
+            }
+            let (stream, mut peer) = std::os::unix::net::UnixStream::pair().unwrap();
+            let client = ipc_new_client_on_fd(loop_, stream.into_raw_fd());
+            let token = ClientToken::capture(client);
+            i3_common::logging::set_sink(replace_during_command);
+            peer.write_all(&encode_frame(0, b"nop\0\xff")).unwrap();
+            ipc_receive_message(loop_, (*client).read_callback, EV_READ);
+            assert!(OBSERVED_COMMAND.load(std::sync::atomic::Ordering::Relaxed));
+            assert!(!token.live());
+            let replacement = all_clients.tqh_first;
+            assert!(!replacement.is_null());
+            assert_eq!((*replacement).buffer, b"replacement untouched");
+            free_ipc_client(replacement, -1);
+
+            fn disconnect_after_partial_subscription(level: i3_common::logging::Level, _: &[u8]) {
+                if level == i3_common::logging::Level::Error {
+                    unsafe {
+                        assert_eq!((*all_clients.tqh_first).events, [b"tick".to_vec()]);
+                        free_ipc_client(all_clients.tqh_first, -1);
+                    }
+                }
+            }
+            let (stream, mut peer) = std::os::unix::net::UnixStream::pair().unwrap();
+            let client = ipc_new_client_on_fd(loop_, stream.into_raw_fd());
+            let token = ClientToken::capture(client);
+            i3_common::logging::set_sink(disconnect_after_partial_subscription);
+            peer.write_all(&encode_frame(2, br#"["tick"] trailing"#))
+                .unwrap();
+            ipc_receive_message(loop_, (*client).read_callback, EV_READ);
+            assert!(!token.live());
+            assert_eq!(peer.read(&mut byte).unwrap(), 0);
+
+            fn disconnect_during_bar_lookup(level: i3_common::logging::Level, bytes: &[u8]) {
+                if level == i3_common::logging::Level::Verbose {
+                    assert_eq!(bytes, b"IPC: looking for config for bar ID \"\"\n");
+                    unsafe { free_ipc_client(all_clients.tqh_first, -1) };
+                }
+            }
+            let (stream, mut peer) = std::os::unix::net::UnixStream::pair().unwrap();
+            let client = ipc_new_client_on_fd(loop_, stream.into_raw_fd());
+            let token = ClientToken::capture(client);
+            i3_common::logging::set_sink(disconnect_during_bar_lookup);
+            peer.write_all(&encode_frame(6, b"\0\xff")).unwrap();
+            ipc_receive_message(loop_, (*client).read_callback, EV_READ);
+            assert!(!token.live());
+            assert_eq!(peer.read(&mut byte).unwrap(), 0);
+
+            fn discard(_: i3_common::logging::Level, _: &[u8]) {}
+            i3_common::logging::set_sink(discard);
+            // Empty payload and a payload beginning with NUL remain distinct:
+            // only the former asks for the bar ID list.
+            for (payload, expected) in [
+                (b"".as_slice(), b"[]".as_slice()),
+                (b"\0\xff".as_slice(), br#"{"id":null}"#.as_slice()),
+            ] {
+                let (stream, mut peer) = std::os::unix::net::UnixStream::pair().unwrap();
+                peer.set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                    .unwrap();
+                let client = ipc_new_client_on_fd(loop_, stream.into_raw_fd());
+                peer.write_all(&encode_frame(6, payload)).unwrap();
+                ipc_receive_message(loop_, (*client).read_callback, EV_READ);
+                let reply = i3_common::ipc_recv_message::receive_message(&mut peer).unwrap();
+                assert_eq!(reply.message_type, 6);
+                assert_eq!(reply.payload, expected);
+                free_ipc_client(client, -1);
+            }
+            // Tick dispatch uses the complete binary payload, unlike command
+            // and bar-name prefix interpretation. Events precede the reply.
+            for (payload, expected) in [
+                (
+                    b"".as_slice(),
+                    br#"{"first":false,"payload":""}"#.as_slice(),
+                ),
+                (
+                    b"a\0b\n".as_slice(),
+                    br#"{"first":false,"payload":"a\u0000b\n"}"#.as_slice(),
+                ),
+                (
+                    b"\xff".as_slice(),
+                    br#"{"first":false,"payload""#.as_slice(),
+                ),
+            ] {
+                let (stream, mut peer) = std::os::unix::net::UnixStream::pair().unwrap();
+                peer.set_read_timeout(Some(std::time::Duration::from_secs(2)))
+                    .unwrap();
+                let client = ipc_new_client_on_fd(loop_, stream.into_raw_fd());
+                (*client).events.push(b"tick".to_vec());
+                peer.write_all(&encode_frame(10, payload)).unwrap();
+                ipc_receive_message(loop_, (*client).read_callback, EV_READ);
+                let event = i3_common::ipc_recv_message::receive_message(&mut peer).unwrap();
+                assert_eq!(event.message_type, I3_IPC_EVENT_TICK as u32);
+                assert_eq!(event.payload, expected);
+                let reply = i3_common::ipc_recv_message::receive_message(&mut peer).unwrap();
+                assert_eq!(reply.message_type, 10);
+                assert_eq!(reply.payload, br#"{"success":true}"#);
+                free_ipc_client(client, -1);
+            }
             libev_sys::ev_loop_destroy(loop_);
             main_loop = std::ptr::null_mut();
         }
