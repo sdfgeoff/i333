@@ -2,7 +2,10 @@
 """Check core/bar CLI behavior without connecting to a desktop X server.
 
 Run after cargo build. --reference-dir optionally compares an external C build;
-only executable paths, build version stamps and logger timestamps normalize.
+Executable paths, build version stamps and logger timestamps normalize. When
+comparing the external C build, only explicitly listed Rust configuration keyword
+extensions normalize on initial-state Expected-one-of-tokens diagnostic lines;
+the Rust diagnostic must still advertise each extension.
 Configuration validation uses explicit temporary files and private HOME/runtime
 paths. DISPLAY/I3SOCK/WAYLAND_DISPLAY and desktop bus credentials are removed.
 """
@@ -49,12 +52,66 @@ def normalize(result, executable):
     return result.returncode, *output
 
 
+# The C oracle predates these opt-in extensions. Match only the complete,
+# line-anchored initial-config diagnostic; never strip names from other output.
+_INITIAL_CONFIG_DIAGNOSTIC = re.compile(
+    rb"(?m)^(?:<TIME> - )?ERROR: CONFIG: Expected one of these tokens: <end>, '#', 'set '[^\n]*$"
+)
+_CONFIG_KEYWORD_EXTENSIONS = (
+    (b"'titlebar_buttons'", b"'title_align'", b"'show_marks'"),
+)
+
+
+def normalize_config_extensions(actual, expected):
+    output = [actual[0]]  # Exit status remains an exact part of the comparison.
+    for observed, baseline in zip(actual[1:], expected[1:]):
+        actual_lines = list(_INITIAL_CONFIG_DIAGNOSTIC.finditer(observed))
+        reference_lines = list(_INITIAL_CONFIG_DIAGNOSTIC.finditer(baseline))
+        assert len(actual_lines) == len(reference_lines), ('config diagnostic count', actual, expected)
+        replacements = []
+        for actual_line, reference_line in zip(actual_lines, reference_lines):
+            line = actual_line.group()
+            for keyword, before, after in _CONFIG_KEYWORD_EXTENSIONS:
+                extension = b', '.join((before, keyword, after))
+                assert line.count(keyword) == 1 and extension in line, ('missing/duplicate Rust config extension', keyword, line)
+                if keyword not in reference_line.group():
+                    legacy = b', '.join((before, after))
+                    assert legacy in reference_line.group(), ('unexpected C config grammar', reference_line.group())
+                    line = line.replace(extension, legacy, 1)
+            replacements.append((actual_line.start(), actual_line.end(), line))
+        for start, end, line in reversed(replacements):
+            observed = observed[:start] + line + observed[end:]
+        output.append(observed)
+    return tuple(output)
+
+
+def check_config_extension_normalization():
+    legacy = b"<TIME> - ERROR: CONFIG: Expected one of these tokens: <end>, '#', 'set ', 'title_align', 'show_marks'\n"
+    extended = legacy.replace(b"'title_align', 'show_marks'", b"'title_align', 'titlebar_buttons', 'show_marks'")
+    reference = (1, legacy, b'unchanged stderr\n')
+    assert normalize_config_extensions((1, extended, reference[2]), reference) == reference
+    assert normalize_config_extensions((2, extended, reference[2]), reference) != reference
+    assert normalize_config_extensions((1, extended, b'changed stderr\n'), reference) != reference
+    unexpected = extended.replace(b"'show_marks'", b"'show_marks', 'unexpected_extension'")
+    assert normalize_config_extensions((1, unexpected, reference[2]), reference) != reference
+    for invalid in (legacy, extended.replace(b"'titlebar_buttons'", b"'titlebar_buttons', 'titlebar_buttons'")):
+        try:
+            normalize_config_extensions((1, invalid, reference[2]), reference)
+        except AssertionError:
+            pass
+        else:
+            raise AssertionError('normalizer accepted a missing/duplicate extension')
+    unrelated = b"unrelated 'titlebar_buttons' output\n"
+    assert normalize_config_extensions((1, unrelated, b''), (1, b'', b''))[1] == unrelated
+
+
 def invoke(executable, arguments, env):
     return normalize(subprocess.run([str(executable), *arguments], env=env,
                                    capture_output=True, timeout=10), executable)
 
 
 def main():
+    check_config_extension_normalization()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--candidate-dir', '--rust-bin-dir', dest='candidate_dir', type=Path)
     parser.add_argument('--reference-dir', type=Path)
@@ -113,7 +170,8 @@ def main():
                 assert actual[0] == status, (name, arguments, status, actual)
                 if reference:
                     expected = invoke(reference / name, arguments, env)
-                    assert actual == expected, (name, arguments, expected, actual)
+                    compared = normalize_config_extensions(actual, expected) if name == 'i3' else actual
+                    assert compared == expected, (name, arguments, expected, actual)
                 checked += 1
     print(f'PASS: {checked} core/bar CLI cases, including configuration-only validation; no X display')
 
