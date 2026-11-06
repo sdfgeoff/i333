@@ -103,7 +103,7 @@ def private_environment(work):
 
 @contextlib.contextmanager
 def session(binary, xvfb, *, force_xinerama=False, disable_randr15=False, with_process=False,
-            font="pango:monospace 8"):
+            font="pango:monospace 8", extra_config=""):
     with temporary_directory(prefix="i333-headless-") as temporary:
         work = Path(temporary)
         env = private_environment(work)
@@ -132,7 +132,7 @@ workspace_auto_back_and_forth no
 default_border pixel 2
 gaps inner 5
 gaps outer 3
-""" + ("force_xinerama yes\n" if force_xinerama else ""))
+""" + ("force_xinerama yes\n" if force_xinerama else "") + extra_config)
                 arguments = [str(binary), "-a", "-c", str(config)]
                 if disable_randr15:
                     arguments.append("--disable-randr15")

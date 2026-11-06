@@ -477,6 +477,13 @@ impl Con {
     }
 }
 
+/// Optional controls on ordinary window titlebars, displayed fullscreen then close.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TitlebarButtons {
+    pub fullscreen: bool,
+    pub close: bool,
+}
+
 pub struct Config {
     pub terminal: Option<Vec<u8>>,
     pub font: i3_common::font::Font,
@@ -501,6 +508,7 @@ pub struct Config {
     pub focus_on_window_activation: FocusActivation,
     pub show_marks: bool,
     pub title_align: TitleAlign,
+    pub titlebar_buttons: TitlebarButtons,
     pub default_border: BorderStyle,
     pub default_floating_border: BorderStyle,
     pub floating_modifier: u32,
@@ -762,6 +770,9 @@ pub struct deco_render_params {
     pub background: i3_common::draw_util::color_t,
     pub parent_layout: Layout,
     pub con_is_leaf: bool,
+    pub titlebar_buttons: TitlebarButtons,
+    pub button_state: crate::titlebar_buttons::ButtonState,
+    pub button_reserved_width: u32,
 }
 
 #[derive(Copy, Clone)]

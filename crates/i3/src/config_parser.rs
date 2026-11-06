@@ -72,6 +72,7 @@ use crate::config_directives::cfg_smart_gaps;
 use crate::config_directives::cfg_tiling_drag;
 use crate::config_directives::cfg_tiling_drag_swap_modifier;
 use crate::config_directives::cfg_title_align;
+use crate::config_directives::cfg_titlebar_buttons;
 use crate::config_directives::cfg_workspace;
 use crate::config_directives::cfg_workspace_back_and_forth;
 use crate::config_directives::cfg_workspace_layout;
@@ -2746,7 +2747,7 @@ static tokens_INCLUDE: [cmdp_token; 1] = [token {
         call_identifier: 150_i32 as u16,
     },
 }];
-static tokens_INITIAL: [cmdp_token; 60] = [
+static tokens_INITIAL: [cmdp_token; 61] = [
     token {
         name: b"end",
         identifier: None,
@@ -3090,6 +3091,12 @@ static tokens_INITIAL: [cmdp_token; 60] = [
         extra: ConfigTokenData {
             call_identifier: 0_i32 as u16,
         },
+    },
+    token {
+        name: b"'titlebar_buttons",
+        identifier: None,
+        next_state: ConfigParserState::TitlebarButtons,
+        extra: ConfigTokenData { call_identifier: 0 },
     },
     token {
         name: b"'show_marks",
@@ -3652,7 +3659,25 @@ static tokens_BAR: [cmdp_token; 31] = [
         },
     },
 ];
-static tokens: [&[cmdp_token]; 117] = [
+static tokens_TITLEBAR_BUTTONS: [cmdp_token; 2] = [
+    token {
+        name: b"string",
+        identifier: Some(b"buttons"),
+        next_state: ConfigParserState::Call,
+        extra: ConfigTokenData {
+            call_identifier: 156,
+        },
+    },
+    token {
+        name: b"end",
+        identifier: None,
+        next_state: ConfigParserState::Call,
+        extra: ConfigTokenData {
+            call_identifier: 156,
+        },
+    },
+];
+static tokens: [&[cmdp_token]; 118] = [
     &tokens_FORCE_DISPLAY_URGENCY_HINT_MS,
     &tokens_FLOATING_MAXIMUM_SIZE_HEIGHT,
     &tokens_FLOATING_MINIMUM_SIZE_HEIGHT,
@@ -3770,6 +3795,7 @@ static tokens: [&[cmdp_token]; 117] = [
     &tokens_GAPS,
     &tokens_MODE,
     &tokens_BAR,
+    &tokens_TITLEBAR_BUTTONS,
 ];
 unsafe fn GENERATED_call(
     current_match: *mut Match,
@@ -5440,6 +5466,14 @@ unsafe fn GENERATED_call(
             (*result).next_state = ConfigParserState::Initial;
             cfg_bar_finish(current_match, result);
         }
+        156 => {
+            (*result).next_state = ConfigParserState::Initial;
+            cfg_titlebar_buttons(
+                current_match,
+                result,
+                captures.get_string(b"buttons").unwrap_or_default(),
+            );
+        }
         _ => {
             printf(c"BUG in the parser. state = %d\n".as_ptr(), call_identifier);
             __assert_fail(
@@ -6708,7 +6742,8 @@ use crate::version::i3_version;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum ConfigParserState {
-    Call = 117,
+    Call = 118,
+    TitlebarButtons = 117,
     Bar = 116,
     Mode = 115,
     Gaps = 114,
@@ -6896,6 +6931,75 @@ mod owned_config_tests {
             }
         }
         result
+    }
+
+    #[test]
+    fn titlebar_buttons_dispatches_real_config_and_preserves_settings_on_errors() {
+        if std::env::var_os("I333_TITLEBAR_CONFIG_PROBE").is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "config_parser::owned_config_tests::titlebar_buttons_dispatches_real_config_and_preserves_settings_on_errors", "--nocapture"])
+                .env("I333_TITLEBAR_CONFIG_PROBE", "1")
+                .env_remove("DISPLAY").env_remove("WAYLAND_DISPLAY").env_remove("I3SOCK")
+                .output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        unsafe fn parse(input: &[u8]) -> bool {
+            let mut stack = stack::default();
+            let mut ctx = parser_ctx {
+                use_nagbar: false,
+                state: ConfigParserState::Initial,
+                current_match: Match::empty(),
+                statelist: Vec::new(),
+                statelist_idx: 0,
+                stack: &mut stack,
+                variables: Vec::new(),
+                has_errors: false,
+            };
+            let mut diagnostic = context::default();
+            super::parse_config(&mut ctx, input, &mut diagnostic);
+            ctx.has_errors || diagnostic.has_errors
+        }
+        unsafe {
+            assert_eq!(
+                config.titlebar_buttons,
+                crate::types::TitlebarButtons::default()
+            );
+            assert!(!parse(b"titlebar_buttons fullscreen close\n"));
+            assert_eq!(
+                config.titlebar_buttons,
+                crate::types::TitlebarButtons {
+                    fullscreen: true,
+                    close: true
+                }
+            );
+            assert!(!parse(b"titlebar_buttons close\n"));
+            for bad in [
+                b"titlebar_buttons none fullscreen\n".as_slice(),
+                b"titlebar_buttons close close\n",
+                b"titlebar_buttons invalid\n",
+                b"titlebar_buttons\n",
+            ] {
+                assert!(parse(bad), "{bad:?}");
+                assert_eq!(
+                    config.titlebar_buttons,
+                    crate::types::TitlebarButtons {
+                        fullscreen: false,
+                        close: true
+                    }
+                );
+            }
+            assert!(!parse(b"titlebar_buttons none\n"));
+            assert_eq!(
+                config.titlebar_buttons,
+                crate::types::TitlebarButtons::default()
+            );
+        }
     }
 
     #[test]
@@ -7093,7 +7197,7 @@ mod owned_config_tests {
     #[test]
     fn generated_config_tables_keep_complete_states_and_dispatch_ids() {
         let states = &tokens;
-        assert_eq!(states.len(), 117);
+        assert_eq!(states.len(), 118);
         let mut calls = std::collections::BTreeSet::new();
         for table in states {
             assert!(!table.is_empty());
@@ -7107,7 +7211,7 @@ mod owned_config_tests {
         }
         assert_eq!(
             calls.into_iter().collect::<Vec<_>>(),
-            (0..156).collect::<Vec<u16>>()
+            (0..157).collect::<Vec<u16>>()
         );
     }
 }

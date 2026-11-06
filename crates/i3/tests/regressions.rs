@@ -51,3 +51,8 @@ fn wizard_5_private_workflow_and_config_checks() {
 fn bar_private_stream_and_xembed_workflows() {
     suite("bar");
 }
+
+#[test]
+fn titlebar_buttons_private_pointer_workflows() {
+    suite("titlebar");
+}

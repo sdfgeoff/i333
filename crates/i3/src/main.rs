@@ -56,6 +56,8 @@ mod sighandler;
 mod startup;
 mod sync;
 mod tiling_drag;
+mod titlebar_button_state;
+mod titlebar_buttons;
 mod tree;
 mod types;
 mod util;

@@ -731,6 +731,32 @@ Default is +left+
 title_align left|center|right
 ---------------------------------------------
 
+[[titlebar_buttons]]
+=== Titlebar buttons
+
+Optional fullscreen and close buttons appear on the right of ordinary window
+titlebars when space permits. Both are disabled by default. Buttons always appear in fullscreen,
+then close order, regardless of the order in the configuration.
+
+*Syntax*:
+---------------------------------------------
+titlebar_buttons none|fullscreen|close|fullscreen close
+---------------------------------------------
+
+*Example*:
+---------------------------------------------
+titlebar_buttons fullscreen close
+---------------------------------------------
+
+Use +titlebar_buttons none+ to disable both buttons. Split, tabbed and stacked
+headers, docks, borderless windows and fullscreen windows do not show buttons.
+Fullscreen hides the titlebar; use your existing fullscreen toggle shortcut
+(usually +$mod+f+) to leave fullscreen. For example:
+
+---------------------------------------------
+bindsym $mod+f fullscreen toggle
+---------------------------------------------
+
 [[default_border]]
 === Default border style for new windows
 

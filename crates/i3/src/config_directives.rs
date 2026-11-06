@@ -1050,6 +1050,63 @@ pub unsafe fn cfg_title_align(
     };
 }
 
+fn parse_titlebar_buttons(value: &[u8]) -> Result<crate::types::TitlebarButtons, &'static str> {
+    let mut buttons = crate::types::TitlebarButtons::default();
+    let mut none = false;
+    let mut count = 0;
+    for token in text_prefix(value)
+        .split(|byte| byte.is_ascii_whitespace())
+        .filter(|token| !token.is_empty())
+    {
+        count += 1;
+        if token.eq_ignore_ascii_case(b"none") {
+            if none {
+                return Err("Duplicate titlebar button option 'none'.");
+            }
+            if buttons.fullscreen || buttons.close {
+                return Err("titlebar_buttons 'none' cannot be combined with buttons.");
+            }
+            none = true;
+        } else if token.eq_ignore_ascii_case(b"fullscreen") {
+            if none {
+                return Err("titlebar_buttons 'none' cannot be combined with buttons.");
+            }
+            if buttons.fullscreen {
+                return Err("Duplicate titlebar button 'fullscreen'.");
+            }
+            buttons.fullscreen = true;
+        } else if token.eq_ignore_ascii_case(b"close") {
+            if none {
+                return Err("titlebar_buttons 'none' cannot be combined with buttons.");
+            }
+            if buttons.close {
+                return Err("Duplicate titlebar button 'close'.");
+            }
+            buttons.close = true;
+        } else {
+            return Err("Invalid titlebar button; expected fullscreen, close, or none.");
+        }
+    }
+    if count == 0 {
+        return Err("titlebar_buttons requires fullscreen, close, or none.");
+    }
+    Ok(buttons)
+}
+
+pub unsafe fn cfg_titlebar_buttons(
+    _current_match: *mut Match,
+    result: *mut ConfigResultIR,
+    value: &[u8],
+) {
+    match parse_titlebar_buttons(value) {
+        Ok(buttons) => config.titlebar_buttons = buttons,
+        Err(error) => {
+            (*result).has_errors = true;
+            ::log::error!("ERROR: CONFIG: {error}\n");
+        }
+    }
+}
+
 pub unsafe fn cfg_show_marks(current_match: *mut Match, result: *mut ConfigResultIR, value: bool) {
     config.show_marks = value;
 }
@@ -2051,6 +2108,59 @@ use crate::config::config;
 use crate::r#match::match_is_empty;
 use crate::r#match::match_parse_property;
 use i3_common::draw_util::draw_util_hex_to_color;
+
+#[cfg(test)]
+mod titlebar_button_tests {
+    use super::parse_titlebar_buttons;
+    use crate::types::TitlebarButtons;
+    #[test]
+    fn button_selection_accepts_individuals_and_rejects_ambiguous_options() {
+        assert_eq!(
+            parse_titlebar_buttons(b"none"),
+            Ok(TitlebarButtons::default())
+        );
+        assert_eq!(
+            parse_titlebar_buttons(b"fullscreen close"),
+            Ok(TitlebarButtons {
+                fullscreen: true,
+                close: true
+            })
+        );
+        assert_eq!(
+            parse_titlebar_buttons(b"CLOSE\tfullscreen"),
+            Ok(TitlebarButtons {
+                fullscreen: true,
+                close: true
+            })
+        );
+        assert_eq!(
+            parse_titlebar_buttons(b"fullscreen"),
+            Ok(TitlebarButtons {
+                fullscreen: true,
+                close: false
+            })
+        );
+        assert_eq!(
+            parse_titlebar_buttons(b"close\0ignored"),
+            Ok(TitlebarButtons {
+                fullscreen: false,
+                close: true
+            })
+        );
+        for input in [
+            b"".as_slice(),
+            b"unknown",
+            b"\xff",
+            b"fullscreen fullscreen",
+            b"close CLOSE",
+            b"none none",
+            b"none close",
+            b"fullscreen none",
+        ] {
+            assert!(parse_titlebar_buttons(input).is_err(), "{input:?}");
+        }
+    }
+}
 
 #[cfg(test)]
 mod argument_tests {

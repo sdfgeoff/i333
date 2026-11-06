@@ -243,6 +243,11 @@ unsafe fn handle_enter_notify(event: &x::EnterNotifyEvent, full_sequence: u32) {
 }
 unsafe fn handle_motion_notify(event: &x::MotionNotifyEvent) {
     last_timestamp = event.time();
+    crate::titlebar_button_state::motion(
+        event.event().resource_id(),
+        i32::from(event.event_x()),
+        i32::from(event.event_y()),
+    );
     if event.child().resource_id() as i64 != 0 {
         return;
     }
@@ -1695,7 +1700,19 @@ pub unsafe fn handle_event(owner: &xcb::Event) {
             handle_motion_notify(notification);
         }
         xcb::Event::X(x::Event::EnterNotify(notification)) => {
+            if enter_selectors(notification).0 == 0 {
+                crate::titlebar_button_state::motion(
+                    notification.event().resource_id(),
+                    i32::from(notification.event_x()),
+                    i32::from(notification.event_y()),
+                );
+            }
             handle_enter_notify(notification, (*event).full_sequence);
+        }
+        xcb::Event::X(x::Event::LeaveNotify(notification)) => {
+            if enter_selectors(notification).0 == 0 {
+                crate::titlebar_button_state::leave(notification.event().resource_id());
+            }
         }
         xcb::Event::X(x::Event::ClientMessage(message)) => {
             handle_client_message(message);

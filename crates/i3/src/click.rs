@@ -366,6 +366,9 @@ unsafe fn route_click(con: *mut Con, event: &x::ButtonPressEvent, dest: ClickDes
 }
 
 pub unsafe fn handle_button_press(event: &x::ButtonPressEvent) {
+    if crate::titlebar_button_state::button(event) {
+        return;
+    }
     let mut con: *mut Con = ::core::ptr::null_mut::<Con>();
     ::log::debug!("../src/click.c:handle_button_press:377 - Button {} (state {}) {} on window 0x{:08x} (child 0x{:08x}) at ({}, {}) (root {}, {})\n", { (event.detail() as i32) }, (xcb_interop::events::button_press_state(event) as i32) as i32, if event.response_type() as i32 == 4 {
             "press"

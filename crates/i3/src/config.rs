@@ -217,6 +217,10 @@ const fn empty_config() -> Config {
         focus_on_window_activation: FocusActivation::Smart,
         show_marks: false,
         title_align: TitleAlign::Left,
+        titlebar_buttons: crate::types::TitlebarButtons {
+            fullscreen: false,
+            close: false,
+        },
         default_border: BorderStyle::None,
         default_floating_border: BorderStyle::None,
         floating_modifier: 0,

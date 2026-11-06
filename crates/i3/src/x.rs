@@ -161,6 +161,92 @@ fn same_decoration(first: &deco_render_params, second: &deco_render_params) -> b
         && color(first.background, second.background)
         && first.parent_layout == second.parent_layout
         && first.con_is_leaf == second.con_is_leaf
+        && first.titlebar_buttons == second.titlebar_buttons
+        && first.button_state == second.button_state
+        && first.button_reserved_width == second.button_reserved_width
+}
+
+unsafe fn draw_titlebar_buttons(
+    surface: *mut surface_t,
+    deco: Rect,
+    layout: &crate::titlebar_buttons::ButtonLayout,
+    state: crate::titlebar_buttons::ButtonState,
+    colors: crate::types::Colortriple,
+) {
+    use crate::titlebar_buttons::TitlebarButton;
+    if layout.buttons.is_empty() {
+        return;
+    }
+    // X core fonts do not honor max_width. Repaint the reserved strip after
+    // title/mark/icon drawing so legacy glyphs cannot overlap the controls.
+    draw_util_rectangle(
+        surface,
+        colors.background,
+        deco.x.wrapping_add(deco.width - layout.reserved_width) as i32 as f64,
+        deco.y as i32 as f64,
+        f64::from(layout.reserved_width),
+        f64::from(deco.height),
+    );
+    for button in &layout.buttons {
+        let r = button.rect;
+        let weight = if state.pressed == Some(button.button) {
+            0.4
+        } else if state.hovered == Some(button.button) {
+            0.2
+        } else {
+            0.0
+        };
+        if weight > 0.0 {
+            let mut background = colors.background;
+            background.red += (colors.text.red - background.red) * weight;
+            background.green += (colors.text.green - background.green) * weight;
+            background.blue += (colors.text.blue - background.blue) * weight;
+            draw_util_rectangle(
+                surface,
+                background,
+                r.x as i32 as f64,
+                r.y as i32 as f64,
+                f64::from(r.width),
+                f64::from(r.height),
+            );
+        }
+        let inset = (r.width / 4).max(1);
+        let span = r.width.saturating_sub(2 * inset).max(1);
+        let thickness = (logical_px(1).max(1) as u32).min(span);
+        let x = r.x.wrapping_add(inset) as i32 as f64;
+        let y = r.y.wrapping_add(inset) as i32 as f64;
+        let fill = |dx: u32, dy: u32, w: u32, h: u32| {
+            draw_util_rectangle(
+                surface,
+                colors.text,
+                x + f64::from(dx),
+                y + f64::from(dy),
+                f64::from(w),
+                f64::from(h),
+            );
+        };
+        match button.button {
+            TitlebarButton::Close => {
+                for offset in 0..span.saturating_sub(thickness).saturating_add(1) {
+                    fill(offset, offset, thickness, thickness);
+                    fill(span - thickness - offset, offset, thickness, thickness);
+                }
+            }
+            TitlebarButton::Fullscreen => {
+                let arm = span.div_ceil(3).max(thickness);
+                for dx in [0, span - arm] {
+                    for dy in [0, span - thickness] {
+                        fill(dx, dy, arm, thickness);
+                    }
+                }
+                for dx in [0, span - thickness] {
+                    for dy in [0, span - arm] {
+                        fill(dx, dy, thickness, arm);
+                    }
+                }
+            }
+        }
+    }
 }
 
 struct TitlePlacement {
@@ -833,6 +919,8 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
     };
     let r = (*con).rect;
     let w = (*con).window_rect;
+    let buttons = crate::titlebar_buttons::layout_for(con);
+    let button_state = crate::titlebar_button_state::state_for(con);
     let candidate = deco_render_params {
         color,
         border_style: con_border_style(con),
@@ -848,6 +936,9 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
         background: config.client.background,
         con_is_leaf: con_is_leaf(con),
         parent_layout: (*parent).layout,
+        titlebar_buttons: config.titlebar_buttons,
+        button_state,
+        button_reserved_width: buttons.reserved_width,
     };
     if !(*con).deco_render_params.is_null()
         && ((*con).window.is_null() || !(*(*con).window).name_x_changed)
@@ -1044,10 +1135,21 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     .wrapping_sub(config.font.height as u32)
                     .wrapping_div(2_u32) as i32;
                 win = (*con).window;
-                deco_width = (*con).deco_rect.width as i32;
+                deco_width = if buttons.buttons.is_empty() {
+                    (*con).deco_rect.width as i32
+                } else {
+                    (*con)
+                        .deco_rect
+                        .width
+                        .saturating_sub(buttons.reserved_width)
+                        .min(i32::MAX as u32) as i32
+                };
                 title_padding = logical_px(2) as i32;
                 mark_width = 0;
-                if config.show_marks && !(*con).marks_head.tqh_first.is_null() {
+                if (buttons.buttons.is_empty() || deco_width > logical_px(4))
+                    && config.show_marks
+                    && !(*con).marks_head.tqh_first.is_null()
+                {
                     let mut marks = Vec::new();
                     let mut mark = (*con).marks_head.tqh_first;
                     while !mark.is_null() {
@@ -1058,6 +1160,11 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                         let mark_text = I3String::from_bytes(&formatted_mark);
                         let mark_0 = &mark_text;
                         mark_width = predict_text_width(&crate::config::config.font, mark_0);
+                        if !buttons.buttons.is_empty() {
+                            mark_width = mark_width
+                                .min(deco_width.saturating_sub(2 * title_padding))
+                                .max(0);
+                        }
                         let mark_offset_x: i32 = if config.title_align == TitleAlign::Right {
                             title_padding
                         } else {
@@ -1093,7 +1200,9 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                 } else {
                     None
                 };
-                if let Some(title) = title {
+                if let Some(title) =
+                    title.filter(|_| buttons.buttons.is_empty() || deco_width > 2 * title_padding)
+                {
                     let placement = title_placement(
                         config.title_align,
                         deco_width,
@@ -1110,16 +1219,30 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     has_icon = placement.has_icon;
                     icon_offset_x = placement.icon_offset;
                     title_offset_x = placement.title_offset;
-                    draw_util_text(
-                        &crate::config::config.font,
-                        title,
-                        dest_surface,
-                        (*(*p).color).text,
-                        (*(*p).color).background,
-                        (*con).deco_rect.x.wrapping_add(title_offset_x as u32) as i32,
-                        (*con).deco_rect.y.wrapping_add(text_offset_y as u32) as i32,
-                        placement.available,
-                    );
+                    let title_max_width = if buttons.buttons.is_empty() {
+                        placement.available
+                    } else {
+                        placement
+                            .available
+                            .min(
+                                deco_width
+                                    .saturating_sub(title_offset_x)
+                                    .saturating_sub(title_padding),
+                            )
+                            .max(0)
+                    };
+                    if buttons.buttons.is_empty() || title_max_width > 0 {
+                        draw_util_text(
+                            &crate::config::config.font,
+                            title,
+                            dest_surface,
+                            (*(*p).color).text,
+                            (*(*p).color).background,
+                            (*con).deco_rect.x.wrapping_add(title_offset_x as u32) as i32,
+                            (*con).deco_rect.y.wrapping_add(text_offset_y as u32) as i32,
+                            title_max_width,
+                        );
+                    }
                     if has_icon {
                         draw_util_image(
                             (*win).icon.as_ref().unwrap().as_raw(),
@@ -1132,6 +1255,16 @@ pub unsafe fn x_draw_decoration(con: *mut Con) {
                     }
                     drop(owned_title);
                     x_draw_decoration_after_title(con, p, dest_surface);
+                }
+                draw_titlebar_buttons(
+                    dest_surface,
+                    (*con).deco_rect,
+                    &buttons,
+                    button_state,
+                    *(*p).color,
+                );
+                if !buttons.buttons.is_empty() {
+                    x_draw_title_border(con, p, dest_surface);
                 }
             }
         }
@@ -1442,6 +1575,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
             | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
             | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+            | x::EventMask::LEAVE_WINDOW.bits() as i32
             | x::EventMask::ENTER_WINDOW.bits() as i32) as u32;
         set_event_mask((*state).old_frame, values);
         values = (x::EventMask::PROPERTY_CHANGE.bits() as i32
@@ -1670,6 +1804,7 @@ pub unsafe fn x_push_node(con: *mut Con) {
             | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
             | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
             | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+            | x::EventMask::LEAVE_WINDOW.bits() as i32
             | x::EventMask::ENTER_WINDOW.bits() as i32) as u32;
         set_event_mask((*con).frame.id, values_0);
         if (*con).frame_buffer.id as i64 != 0 {
@@ -1901,6 +2036,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
                     | x::EventMask::POINTER_MOTION.bits() as i32
                     | x::EventMask::PROPERTY_CHANGE.bits() as i32
                     | x::EventMask::FOCUS_CHANGE.bits() as i32
+                    | x::EventMask::LEAVE_WINDOW.bits() as i32
                     | x::EventMask::ENTER_WINDOW.bits() as i32)
                     as u32;
                 set_event_mask(root, root_mask);
@@ -1917,6 +2053,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
         | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
         | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::LEAVE_WINDOW.bits() as i32
         | x::EventMask::ENTER_WINDOW.bits() as i32) as u32;
     state = state_head.cqh_last;
     while state != &raw mut state_head as *mut ::core::ffi::c_void as *mut FrameState {
@@ -2083,6 +2220,7 @@ pub unsafe fn x_push_changes(con: *mut Con) {
         | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
         | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
         | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::LEAVE_WINDOW.bits() as i32
         | x::EventMask::ENTER_WINDOW.bits() as i32)
         & !(x::EventMask::ENTER_WINDOW.bits() as i32)) as u32;
     state = state_head.cqh_last;
@@ -2244,6 +2382,7 @@ pub unsafe fn x_mask_event_mask(mask: u32) {
         | x::EventMask::STRUCTURE_NOTIFY.bits() as i32
         | x::EventMask::SUBSTRUCTURE_REDIRECT.bits() as i32
         | x::EventMask::SUBSTRUCTURE_NOTIFY.bits() as i32
+        | x::EventMask::LEAVE_WINDOW.bits() as i32
         | x::EventMask::ENTER_WINDOW.bits() as i32) as u32
         & mask;
     let mut state: *mut FrameState = state_head.cqh_last;
@@ -2502,6 +2641,103 @@ mod tests {
         assert_eq!((right.title_offset, right.icon_offset), (50, 81));
     }
     #[test]
+    fn titlebar_controls_cover_text_overrun_and_show_pointer_feedback() {
+        use crate::titlebar_buttons::{ButtonLayout, ButtonRect, ButtonState, TitlebarButton};
+        unsafe {
+            let image = cairo_sys::cairo_image_surface_create(cairo_sys::FORMAT_A_RGB32, 40, 20);
+            let context = cairo_sys::cairo_create(image);
+            let mut surface = surface_t::from_raw_cairo(1, 40, 20, image, context);
+            let black = color_t {
+                red: 0.0,
+                green: 0.0,
+                blue: 0.0,
+                alpha: 1.0,
+                colorpixel: 0,
+            };
+            let white = color_t {
+                red: 1.0,
+                green: 1.0,
+                blue: 1.0,
+                ..black
+            };
+            let colors = crate::types::Colortriple {
+                border: black,
+                background: black,
+                text: white,
+                indicator: black,
+                child_border: black,
+            };
+            let deco = Rect {
+                x: 0,
+                y: 0,
+                width: 40,
+                height: 20,
+            };
+            let layout = ButtonLayout {
+                reserved_width: 20,
+                buttons: vec![ButtonRect {
+                    button: TitlebarButton::Close,
+                    rect: Rect {
+                        x: 22,
+                        y: 2,
+                        width: 16,
+                        height: 16,
+                    },
+                }],
+            };
+            let pixel = |x: usize, y: usize| {
+                cairo_sys::cairo_surface_flush(image);
+                let stride = cairo_sys::cairo_image_surface_get_stride(image) as usize;
+                cairo_sys::cairo_image_surface_get_data(image)
+                    .add(y * stride + x * 4)
+                    .cast::<u32>()
+                    .read_unaligned()
+            };
+            draw_util_rectangle(&raw mut surface, white, 0.0, 0.0, 40.0, 20.0);
+            draw_titlebar_buttons(
+                &raw mut surface,
+                deco,
+                &layout,
+                ButtonState::default(),
+                colors,
+            );
+            assert_eq!(pixel(19, 1), 0xffffffff, "title area is untouched");
+            assert_eq!(
+                pixel(20, 1),
+                0xff000000,
+                "reserved padding covers old glyphs"
+            );
+            assert_eq!(pixel(22, 2), 0xff000000);
+            assert_eq!(pixel(26, 6), 0xffffffff, "vector close glyph is drawn");
+            draw_titlebar_buttons(
+                &raw mut surface,
+                deco,
+                &layout,
+                ButtonState {
+                    hovered: Some(TitlebarButton::Close),
+                    pressed: None,
+                },
+                colors,
+            );
+            let hover = pixel(22, 2);
+            assert!(hover > 0xff000000);
+            draw_titlebar_buttons(
+                &raw mut surface,
+                deco,
+                &layout,
+                ButtonState {
+                    hovered: Some(TitlebarButton::Close),
+                    pressed: Some(TitlebarButton::Close),
+                },
+                colors,
+            );
+            assert!(
+                pixel(22, 2) > hover,
+                "press feedback is stronger than hover"
+            );
+        }
+    }
+    #[test]
     fn cached_decoration_uses_field_bits_without_padding() {
         let color = color_t {
             red: 0.0,
@@ -2524,9 +2760,24 @@ mod tests {
             background: color,
             parent_layout: Layout::SplitH,
             con_is_leaf: true,
+            titlebar_buttons: crate::types::TitlebarButtons::default(),
+            button_state: crate::titlebar_buttons::ButtonState::default(),
+            button_reserved_width: 0,
         };
         let second = first;
         assert!(same_decoration(&first, &second));
+        let mut buttons = first;
+        buttons.titlebar_buttons.close = true;
+        assert!(!same_decoration(&buttons, &first));
+        buttons = first;
+        buttons.button_state.hovered = Some(crate::titlebar_buttons::TitlebarButton::Close);
+        assert!(!same_decoration(&buttons, &first));
+        buttons = first;
+        buttons.button_state.pressed = Some(crate::titlebar_buttons::TitlebarButton::Fullscreen);
+        assert!(!same_decoration(&buttons, &first));
+        buttons = first;
+        buttons.button_reserved_width = 20;
+        assert!(!same_decoration(&buttons, &first));
         first.background.red = -0.0;
         assert!(!same_decoration(&first, &second));
         assert_eq!(focus_action(false, true, true), FocusAction::Unmapped);
