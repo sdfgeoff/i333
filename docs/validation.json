@@ -1,5 +1,5 @@
 {
-  "date": "2026-11-02",
+  "date": "2026-11-06",
   "upstream_revision": "be04c853ee7fa01a82a0c81f8217565395e2627c",
   "method": "Upstream complete-run.pl; four private Xephyr workers beneath private Xvfb; copied Rust product executables and rewritten embedded build paths; DISPLAY/I3SOCK/WAYLAND_DISPLAY/XAUTHORITY/DBUS_SESSION_BUS_ADDRESS removed before invocation.",
   "c_baseline": {
@@ -8,26 +8,26 @@
   },
   "rust": {
     "return_code": 0,
-    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.65 usr +  0.06 sys =  0.71 CPU)\nResult: PASS",
+    "summary": "All tests successful.\nFiles=285, Tests=4205, 23 wallclock secs ( 0.63 usr +  0.07 sys =  0.70 CPU)\nResult: PASS",
     "profile": "debug",
     "build": "cargo test --locked",
     "original_i3_c_archive_linked": false
   },
   "tested_rust_product_sha256": {
-    "i3": "0ec71967423e73f20e041cd8ee1911ff12ee103055a72cf059e89e9cfd69d071",
-    "i3bar": "6e235d5e861d4d228b5609a67632270f3250467cc16ac695688cc84051ecb27f",
-    "i3-config-wizard": "e0a80c1255d93b5128868bd60f9e77594c4ff76a849e47d74ef47b048f9e5426",
-    "i3-dump-log": "7dfaf81812b96ce88932635809d240a32703be381e86a8e687996f00cb9b0eb3",
-    "i3-input": "28aa28266b977dbc60cdb4f8e9c04c7e12d1cb6349ae5090c87bc3f8cd5d2e08",
-    "i3-msg": "35bb72910e11325bce0a380eefd57aa45aff6dcf0ad57aec274edcd0f8023ed5",
-    "i3-nagbar": "be4ed325cd3dbb65f24eaa0d0ada744da6e9e8eac28656e05ad949e46ba12483"
+    "i3": "e3f33dfa4f27caea2cc17d119f477e24c75d880a4dbcc6fba8647aab9c42a4af",
+    "i3bar": "2c337bf1c672e15b6f09ae09101e48abb80c20abc67ff03d364a7359633402b3",
+    "i3-config-wizard": "6659284fb4cdd2856048909f547dc145f44b2871ab64803a76d25abf0a6f895d",
+    "i3-dump-log": "65b58f22b51354a06490283a59b7327cb0003881dc9853251ec0977ffb26eab9",
+    "i3-input": "d2e50d7701653ab92b300ab479cbd206b46297e3129cef4e8bf03b5b2d54a740",
+    "i3-msg": "14470f8763301ee423762bcbf4e532fe5e0db57dbebc2449603679be1b858c46",
+    "i3-nagbar": "073fd91e9cd1e0606403c4ef17aee639ae0920347f7acc57061bf8b0333b64b7"
   },
-  "note": "Nine-member Cargo workspace. cargo test --locked passed 466 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
+  "note": "Nine-member Cargo workspace. cargo test --locked passed 476 Rust-reported tests, native comparisons, all private-display runtime suites and all4205 upstream assertions. Exact debug product hashes match this Cargo-driven run. Rendering text uses owned Rust values/borrows; IPC uses typed Serde schemas with required incremental protocol framing. Parent/global/floating/focus/tiling relationships live in owned generation-checked arena metadata. Native FFI/callbacks, borrowed raw payload access and auxiliary native resources remain explicit unsafe boundaries; Linux x86_64 GNU ABI only.",
   "reproduce": "python3 scripts/prepare-tests.py && cargo test (setup only needs repeating when test dependencies are missing; runtime tests are offline)",
   "additional_checks": {
     "headless_c_rust_state_comparisons": 61,
     "ipc_client_test_groups": 16,
-    "workspace_unit_tests": 466,
+    "workspace_unit_tests": 476,
     "core_and_bar_cli_comparisons": 39,
     "pcre2_compile_match_error_comparisons": 4620,
     "json_oracle_cases": 2263,
@@ -58,7 +58,8 @@
     "lossless_input_event_state_comparisons": 458752,
     "window_hint_native_flag_input_comparisons": 136,
     "bar_private_xembed_lifecycle": true,
-    "bar_private_modifier_hide_reload": true
+    "bar_private_modifier_hide_reload": true,
+    "titlebar_private_pointer_workflows": 9
   },
   "toolchain": {
     "rustc": "rustc 1.99.0-nightly (11177f223 2026-08-02)",
@@ -121,8 +122,8 @@
     "binary_count": 7,
     "native_library_discovery": "maintained native binding build scripts and dedicated sys crates; i3-build links only platform m/rt",
     "unit_tests": {
-      "i3": 248,
-      "cargo_regression_wrappers": 8,
+      "i3": 257,
+      "cargo_regression_wrappers": 9,
       "xkb_integration": 1,
       "i3-build": 3,
       "i3-common": 106,
@@ -142,13 +143,13 @@
     "cargo_fmt_check": true,
     "debug_build": true,
     "release_build": true,
-    "unit_tests_total_including_integration_checks": 466,
+    "unit_tests_total_including_integration_checks": 476,
     "test_command": "cargo test",
     "clean_source_command": "cargo test -p i3-test-support --features clean-source-check",
     "test_support": "development-only process capture, failure propagation and isolated regression orchestration",
     "release_build_note": "Property/native-utility checkpoint cac6b76d passed Ubuntu CI complete tests, clean-source build isolation and release build. Current input/core/RandR checkpoint additionally passes the full local Cargo gate.",
     "last_release_build_verified_commit": "cac6b76dc83c5b1f2ea36e6ccd58985470e931c2",
-    "rust_source_files": 150
+    "rust_source_files": 152
   },
   "modernization": {
     "yajl_product_dependency": false,
@@ -2986,5 +2987,24 @@
     "maximum_escaped_chunk_bytes": 3700,
     "final_chunk_emitted_first": true,
     "upstream_failure_details_bytes": 12000
+  },
+  "features": {
+    "titlebar_buttons": {
+      "status": "complete",
+      "configuration": "titlebar_buttons fullscreen close",
+      "default": "Both controls disabled",
+      "scope": "Ordinary leaf-window titlebars; grouped headers, docks, borderless and fullscreen windows excluded",
+      "interaction": "Release activation with hover/pressed feedback; leaving cancels; generation and X window identity checked before actions; close uses existing WM_DELETE-compatible handling",
+      "checkpoint": {
+        "source_commit": "c24fce97229be215898639641125092c3d94ccc7",
+        "scope": "Opt-in fullscreen and close titlebar controls with shared rendering/hit geometry, release activation, cancellation, generation-checked targets and nine private pointer workflows.",
+        "rust_tests": 476,
+        "upstream_assertions": 4205,
+        "status": "validated"
+      },
+      "private_pointer_workflows": 9,
+      "review": "Configuration, rendering and input state independently reviewed; no blockers",
+      "desktop_and_installed_binary": "unchanged"
+    }
   }
 }
